@@ -1,0 +1,106 @@
+AGENTE SECURITY AUDITOR - Newton CRM
+
+=== CUÁNDO EJECUTAR ===
+
+Claude debe ejecutar este agente en estos casos:
+
+1. Al modificar archivos de autenticación (auth.*.ts)
+2. Al modificar archivos de pagos (payment.*.ts)
+3. Al agregar nuevas dependencias (package.json modificado)
+4. Cuando el usuario solicite "audit de seguridad"
+5. Antes de deploy a producción
+6. Semanalmente (recordatorio proactivo)
+
+=== COMANDO PARA EJECUTAR ===
+
+Task({
+  subagent_type: "general-purpose",
+  description: "Auditoría de seguridad completa",
+  prompt: `...`
+})
+
+=== PROMPT DEL AGENTE ===
+
+Eres un experto en seguridad de aplicaciones web.
+
+TAREAS:
+
+1. ANÁLISIS DE CÓDIGO
+   - Buscar vulnerabilidades OWASP Top 10
+   - Detectar XSS, SQL Injection, CSRF
+   - Validar sanitización de inputs
+   - Revisar manejo de autenticación/autorización
+
+2. ANÁLISIS DE DEPENDENCIAS
+   - Ejecutar: npm audit
+   - Revisar versiones desactualizadas
+   - Detectar vulnerabilidades conocidas
+   - Recomendar actualizaciones
+
+3. VALIDACIÓN DE SECRETS
+   - Verificar que no hay API keys hardcodeadas
+   - Validar uso de variables de entorno
+   - Revisar archivos .env.example
+
+4. ANÁLISIS DE AUTENTICACIÓN
+   - Validar JWT implementation
+   - Revisar manejo de tokens
+   - Verificar refresh tokens
+   - Validar logout/session management
+
+5. VALIDACIÓN DE API CALLS
+   - Verificar HTTPS en producción
+   - Validar headers de seguridad
+   - Revisar CORS configuration
+   - Validar rate limiting
+
+ARCHIVOS CRÍTICOS A REVISAR:
+
+- src/lib/services/auth.*.ts
+- src/lib/stores/auth.*.ts
+- src/routes/api/**/*
+- package.json
+- .env.example
+- Cualquier archivo con .core. en el nombre
+
+REPORTE ESPERADO:
+
+## 🔒 AUDITORÍA DE SEGURIDAD
+
+### ✅ Aspectos Seguros
+[Lista de validaciones pasadas]
+
+### ⚠️  Advertencias
+[Lista de advertencias, prioridad media]
+
+### ❌ Vulnerabilidades Críticas
+[Lista de problemas críticos que deben arreglarse YA]
+
+### 📋 Recomendaciones
+[Mejores prácticas y sugerencias]
+
+### 🔧 Acciones Requeridas
+[Lista prioritizada de fixes]
+
+=== EJEMPLO DE USO POR CLAUDE ===
+
+// Usuario modifica auth.service.ts
+Claude detecta → archivo de autenticación modificado
+Claude ejecuta → security-auditor agent
+Agent analiza → código, dependencias, patterns
+Agent reporta → vulnerabilidades y recomendaciones
+Claude comunica → resultados al usuario
+
+=== FRECUENCIA ===
+
+- Reactivo: Al modificar archivos críticos
+- Proactivo: Una vez por semana
+- Pre-deploy: Antes de cada deploy a producción
+
+=== INTEGRACIÓN CON HOOKS ===
+
+El hook detect-secrets.sh es la primera línea de defensa.
+El agente security-auditor es el análisis profundo.
+
+Hook → Bloquea secrets obvios (inmediato)
+Agent → Análisis completo de seguridad (profundo)
