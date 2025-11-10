@@ -11,7 +11,7 @@
 	import { validateTransition } from '$lib/services/kanban.core.service';
 	import KanbanColumn from './kanban.core.column.svelte';
 	import { Button, Badge } from '$lib/components/ui';
-	import { RefreshCw, Filter, Settings } from 'lucide-svelte';
+	import { RefreshCw, Filter, Settings, AlertCircle } from 'lucide-svelte';
 	import { onMount, onDestroy } from 'svelte';
 
 	interface Props {
@@ -189,8 +189,23 @@
 
 		<!-- Error message -->
 		{#if error}
-			<div class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
-				<p class="text-sm text-red-800">{error}</p>
+			<div class="mt-3 rounded-lg border-2 border-red-300 bg-red-50 p-6">
+				<div class="flex items-start gap-3">
+					<div class="text-red-500">
+						<AlertCircle class="h-6 w-6" />
+					</div>
+					<div class="flex-1">
+						<h3 class="text-lg font-semibold text-red-800">Error al cargar tablero</h3>
+						<p class="text-sm text-red-700 mt-1">{error}</p>
+						<button
+							class="mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							onclick={handleRefresh}
+							disabled={isRefreshing}
+						>
+							{isRefreshing ? 'Recargando...' : 'Reintentar'}
+						</button>
+					</div>
+				</div>
 			</div>
 		{/if}
 	</div>
