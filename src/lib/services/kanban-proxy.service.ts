@@ -9,8 +9,10 @@ import type {
   StageCreate,
   StageUpdate,
   BoardData,
+  BoardUser,
   ApiError,
   KanbanFilters,
+  LeadKanban,
 } from "$lib/types/kanban";
 
 /**
@@ -56,12 +58,38 @@ async function authenticatedFetch(
     }
 
     const data = await response.json();
-    console.log("[KANBAN PROXY] Success");
+    console.log(
+      "[KANBAN PROXY] Success - Response data:",
+      JSON.stringify(data, null, 2),
+    );
     return data;
   } catch (error) {
     console.error("[KANBAN PROXY] Request failed:", error);
     throw error;
   }
+}
+
+interface BoardApiResponse {
+  stages?: Record<string, LeadKanban[]>;
+  kanban_data?: Record<string, LeadKanban[]>;
+  configuration?: KanbanConfig | null;
+  user?: BoardUser | null;
+  [key: string]: unknown;
+}
+
+type BoardResponseLike = Partial<BoardData> & BoardApiResponse;
+
+function normalizeBoardResponse(
+  data: BoardResponseLike | null | undefined,
+): BoardData {
+  const source = (data ?? {}) as BoardResponseLike;
+  const stages = source.stages ?? source.kanban_data ?? {};
+
+  return {
+    stages,
+    configuration: source.configuration ?? null,
+    user: source.user ?? null,
+  };
 }
 
 // ==================== KANBAN CONFIGURATION ====================
@@ -102,12 +130,33 @@ export async function getBoard(
 ): Promise<BoardData> {
   try {
     console.log("[KANBAN SERVICE] Getting board via proxy");
+    console.log("[KANBAN SERVICE] Filters:", filters);
     const params = filters
       ? new URLSearchParams(filters as any).toString()
       : "";
     const url = params ? `/api/kanban/board?${params}` : "/api/kanban/board";
-    return await authenticatedFetch(url, token);
+    console.log("[KANBAN SERVICE] Board URL:", url);
+    const rawBoardData = (await authenticatedFetch(
+      url,
+      token,
+    )) as BoardResponseLike;
+    const boardData = normalizeBoardResponse(rawBoardData);
+
+    // Log board data structure
+    const stageKeys = Object.keys(boardData.stages);
+    if (stageKeys.length === 0) {
+      console.warn("[KANBAN SERVICE] Board has no stages in response");
+    } else {
+      console.log("[KANBAN SERVICE] Board has stages:", stageKeys);
+      stageKeys.forEach((stageId) => {
+        const leads = boardData.stages[stageId];
+        console.log(`[KANBAN SERVICE] Stage ${stageId}: ${leads.length} leads`);
+      });
+    }
+
+    return boardData;
   } catch (error) {
+    console.error("[KANBAN SERVICE] Board fetch error:", error);
     throw new Error(handleApiError(error));
   }
 }

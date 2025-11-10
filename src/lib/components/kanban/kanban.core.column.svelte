@@ -6,7 +6,7 @@
 	 */
 
 	import type { Stage, LeadKanban } from '$lib/types/kanban';
-	import KanbanCard from './kanban.core.card.svelte';
+	import KanbanCard from './kanban.card.svelte';
 	import { Badge } from '$lib/components/ui';
 
 	interface Props {

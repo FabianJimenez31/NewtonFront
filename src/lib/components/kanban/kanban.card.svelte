@@ -1,9 +1,9 @@
-<!-- @core -->
+<!-- Unified Kanban Card with Global Fields -->
 <script lang="ts">
 	/**
-	 * Kanban Core Card - Newton CRM
+	 * Kanban Card - Newton CRM
 	 * Unified card component with global fields support
-	 * Displays both basic and extended lead information
+	 * This is the main card component for the kanban board
 	 */
 
 	import type { LeadKanban } from '$lib/types/kanban';
@@ -53,12 +53,12 @@
 			<User class="h-4 w-4 text-muted-foreground flex-shrink-0" />
 			<h3 class="font-semibold text-sm text-foreground truncate">{lead.name}</h3>
 
-			<!-- Channel Badge -->
+			<!-- Channel Badge - Only show if available -->
 			{#if lead.channel}
 				<ChannelBadge channel={lead.channel} size="sm" variant="outline" />
 			{/if}
 
-			<!-- Country Flag -->
+			<!-- Country Flag - Only show if available -->
 			{#if lead.country_code}
 				<CountryFlag countryCode={lead.country_code} size="sm" showCode={true} />
 			{/if}
@@ -71,7 +71,7 @@
 		{/if}
 	</div>
 
-	<!-- Deal Value (if exists) -->
+	<!-- Deal Value - Only show if exists -->
 	{#if lead.deal_value}
 		<div class="mb-2">
 			<DealValue
@@ -94,7 +94,7 @@
 		</div>
 	{/if}
 
-	<!-- Tags (if exists) -->
+	<!-- Tags - Only show if exists -->
 	{#if lead.tags && lead.tags.length > 0}
 		<div class="mb-2">
 			<TagsGroup tags={lead.tags} maxVisible={3} size="sm" />
@@ -111,7 +111,7 @@
 
 		<!-- Right side: Badges -->
 		<div class="flex items-center gap-1.5">
-			<!-- SLA Status -->
+			<!-- SLA Status - Only show if available -->
 			{#if lead.sla_status}
 				<SLAIndicator
 					status={lead.sla_status}
@@ -141,26 +141,28 @@
 		</div>
 	</div>
 
-	<!-- Extended info on hover (tooltip-like) -->
-	<div class="hidden group-hover:block absolute z-10 top-full mt-2 left-0 right-0 p-2 bg-popover border border-border rounded-md shadow-lg text-xs">
-		<div class="space-y-1 text-muted-foreground">
-			{#if lead.language}
-				<div>Language: {lead.language}</div>
-			{/if}
-			{#if lead.external_id}
-				<div>External ID: {lead.external_id}</div>
-			{/if}
-			{#if lead.integration_source}
-				<div>Source: {lead.integration_source}</div>
-			{/if}
-			{#if lead.last_agent_name}
-				<div>Last Agent: {lead.last_agent_name}</div>
-			{/if}
-			{#if lead.assigned_agent_name && lead.assigned_agent_name !== lead.last_agent_name}
-				<div>Assigned to: {lead.assigned_agent_name}</div>
-			{/if}
+	<!-- Extended info on hover (tooltip-like) - Only show if any field exists -->
+	{#if lead.language || lead.external_id || lead.integration_source || lead.last_agent_name || (lead.assigned_agent_name && lead.assigned_agent_name !== lead.last_agent_name)}
+		<div class="hidden group-hover:block absolute z-10 top-full mt-2 left-0 right-0 p-2 bg-popover border border-border rounded-md shadow-lg text-xs">
+			<div class="space-y-1 text-muted-foreground">
+				{#if lead.language}
+					<div>Language: {lead.language}</div>
+				{/if}
+				{#if lead.external_id}
+					<div>External ID: {lead.external_id}</div>
+				{/if}
+				{#if lead.integration_source}
+					<div>Source: {lead.integration_source}</div>
+				{/if}
+				{#if lead.last_agent_name}
+					<div>Last Agent: {lead.last_agent_name}</div>
+				{/if}
+				{#if lead.assigned_agent_name && lead.assigned_agent_name !== lead.last_agent_name}
+					<div>Assigned to: {lead.assigned_agent_name}</div>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 
 	<!-- Drag handle indicator (when draggable) -->
 	{#if draggable}

@@ -40,6 +40,43 @@ export interface LeadKanban {
   ai_automation_enabled?: boolean;
   automation_status?: string;
   tenant_id?: string;
+
+  // Global fields for comprehensive lead view
+  channel?:
+    | "whatsapp"
+    | "web"
+    | "telegram"
+    | "instagram"
+    | "email"
+    | "facebook"
+    | "sms"; // Communication channel
+  country_code?: string; // ISO 3166-1 alpha-2 code (e.g., 'US', 'MX', 'BR')
+  language?: string; // ISO 639-1 code (e.g., 'en', 'es', 'pt')
+  currency?: string; // ISO 4217 code (e.g., 'USD', 'MXN', 'BRL')
+  deal_value?: number; // Monetary value of the potential deal
+  external_id?: string; // ID from external integration systems
+  integration_source?: string; // Source system name (e.g., 'salesforce', 'hubspot')
+  last_agent_id?: string; // ID of the last agent who interacted (different from assigned)
+  last_agent_name?: string; // Name of the last agent who interacted
+  sla_status?: "on_time" | "warning" | "overdue" | "no_sla"; // SLA compliance status
+  last_channel_at?: string; // ISO datetime of last channel interaction
+  tags?: string[]; // Array of categorical tags for the lead
+}
+
+/**
+ * Minimal information about the user returned with the board response
+ */
+export interface BoardUser {
+  id: string;
+  email: string;
+  username: string;
+  full_name: string;
+  role?: string;
+  phone?: string | null;
+  tenant_id?: string;
+  can_move_cards?: boolean;
+  is_active?: boolean;
+  [key: string]: unknown;
 }
 
 /**
@@ -48,6 +85,8 @@ export interface LeadKanban {
  */
 export interface BoardData {
   stages: Record<string, LeadKanban[]>; // stage_id -> array of leads
+  configuration?: KanbanConfig | null;
+  user?: BoardUser | null;
 }
 
 /**

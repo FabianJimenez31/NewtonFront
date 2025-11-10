@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { authStore } from '$lib/stores/auth.store';
-	import KanbanBoard from '$lib/components/kanban/kanban.core.board.svelte';
+	import KanbanBoard from '$lib/components/kanban/kanban.board.svelte';
 	import TenantSwitcher from '$lib/components/TenantSwitcher.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+
+	// Import debug utilities (available in console as kanbanDebug)
+	import '$lib/utils/kanban-debug';
 
 	let availableTenants = [];
 

@@ -39,6 +39,42 @@ export const GET: RequestHandler = async ({ request, url }) => {
       return json(data, { status: response.status });
     }
 
+    // Log board data structure for debugging
+    if (data && data.stages) {
+      const stageKeys = Object.keys(data.stages);
+      console.log("[KANBAN BOARD PROXY] Board structure:", {
+        hasStages: stageKeys.length > 0,
+        stageCount: stageKeys.length,
+        stageIds: stageKeys,
+        leadCounts: stageKeys.reduce(
+          (acc, stageId) => {
+            acc[stageId] = data.stages[stageId]?.length || 0;
+            return acc;
+          },
+          {} as Record<string, number>,
+        ),
+        totalLeads: stageKeys.reduce(
+          (sum, stageId) => sum + (data.stages[stageId]?.length || 0),
+          0,
+        ),
+      });
+
+      // Log first lead of first stage for structure inspection
+      if (stageKeys.length > 0 && data.stages[stageKeys[0]]?.length > 0) {
+        const firstLead = data.stages[stageKeys[0]][0];
+        console.log("[KANBAN BOARD PROXY] Sample lead structure:", {
+          hasGlobalFields: !!(
+            firstLead.channel ||
+            firstLead.country_code ||
+            firstLead.deal_value
+          ),
+          fields: Object.keys(firstLead),
+        });
+      }
+    } else {
+      console.warn("[KANBAN BOARD PROXY] Unexpected data structure:", data);
+    }
+
     console.log("[KANBAN BOARD PROXY] Success");
     return json(data);
   } catch (error) {
