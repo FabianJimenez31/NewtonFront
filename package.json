@@ -5,6 +5,12 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite dev",
+    "dev:start": "./dev-server.sh start",
+    "dev:stop": "./dev-server.sh stop",
+    "dev:restart": "./dev-server.sh restart",
+    "dev:status": "./dev-server.sh status",
+    "dev:setup": "./dev-server.sh setup",
+    "dev:logs": "./dev-server.sh logs",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
