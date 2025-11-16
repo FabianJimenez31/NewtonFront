@@ -76,6 +76,7 @@
 		className
 	)}
 	{onclick}
+	data-testid="conversation-item"
 >
 	<div class="flex gap-3">
 		<!-- Avatar -->

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
-	import { Search } from 'lucide-svelte';
+	import { Search, Loader2 } from 'lucide-svelte';
 	import {
 		Tabs,
 		TabsList,
@@ -29,9 +29,13 @@
 		selectedConversationId?: string;
 		activeTab?: 'all' | 'mine' | 'unassigned';
 		searchQuery?: string;
+		isLoadingMore?: boolean;
+		isInitializing?: boolean;
+		hasMore?: boolean;
 		onConversationSelect?: (id: string) => void;
 		onTabChange?: (tab: 'all' | 'mine' | 'unassigned') => void;
 		onSearchChange?: (query: string) => void;
+		onLoadMore?: () => void;
 		conversationItem?: Snippet<[Conversation]>;
 		filters?: Snippet;
 		class?: string;
@@ -42,13 +46,42 @@
 		selectedConversationId = $bindable(''),
 		activeTab = $bindable('all'),
 		searchQuery = $bindable(''),
+		isLoadingMore = false,
+		isInitializing = false,
+		hasMore = true,
 		onConversationSelect,
 		onTabChange,
 		onSearchChange,
+		onLoadMore,
 		conversationItem,
 		filters,
 		class: className
 	}: Props = $props();
+
+let scrollContainer: HTMLDivElement | undefined = $state();
+let sentinel: HTMLDivElement | undefined = $state();
+let observer: IntersectionObserver | null = null;
+
+	// Handle scroll event for infinite scroll
+	function handleScroll(event: Event) {
+		// Block during initialization, loading, or when no more data
+		if (!onLoadMore || !hasMore || isLoadingMore || isInitializing) return;
+
+		console.log('[SCROLL] Checking scroll position', { hasMore, isLoadingMore, isInitializing, conversationsCount: conversations.length });
+
+		// Don't trigger if we don't have initial conversations yet
+		if (conversations.length === 0) return;
+
+		const target = event.target as HTMLDivElement;
+		const { scrollTop, scrollHeight, clientHeight } = target;
+
+		// Load more when user is 100px from bottom
+		const threshold = 100;
+		if (scrollHeight - scrollTop - clientHeight < threshold) {
+			console.log("[SCROLL] Triggering loadMore from scroll handler");
+			onLoadMore();
+		}
+	}
 
 	// Computed: Filter conversations based on active tab
 	const filteredConversations = $derived(() => {
@@ -97,10 +130,64 @@
 		onSearchChange?.(searchQuery);
 	}
 
-	function handleConversationClick(id: string) {
-		selectedConversationId = id;
-		onConversationSelect?.(id);
+function handleConversationClick(id: string) {
+	selectedConversationId = id;
+	onConversationSelect?.(id);
+}
+
+// Intersection observer to ensure loadMore triggers even if scroll events miss
+$effect(() => {
+	if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') {
+		observer?.disconnect();
+		observer = null;
+		return;
 	}
+
+	if (!scrollContainer || !sentinel || !onLoadMore) {
+		observer?.disconnect();
+		observer = null;
+		return;
+	}
+
+	// Force effect to re-run when these values change (reactive dependencies)
+	const _isInitializing = isInitializing;
+	const _hasMore = hasMore;
+	const _isLoadingMore = isLoadingMore;
+
+	observer?.disconnect();
+	observer = new IntersectionObserver(
+		(entries) => {
+			for (const entry of entries) {
+				// Don't trigger during initialization, while loading, or if no more data
+				// Also check that we have conversations loaded already
+				if (
+					entry.isIntersecting &&
+					!_isInitializing &&
+					_hasMore &&
+					!_isLoadingMore &&
+					conversations.length > 0
+				) {
+					console.log('[OBSERVER] Triggering loadMore from IntersectionObserver');
+					onLoadMore();
+				} else if (entry.isIntersecting && _isInitializing) {
+					console.log('[OBSERVER] Blocked - initialization in progress');
+				}
+			}
+		},
+		{
+			root: scrollContainer,
+			rootMargin: '0px 0px 150px 0px',
+			threshold: 0
+		}
+	);
+	observer.observe(sentinel);
+
+	return () => {
+		observer?.disconnect();
+		observer = null;
+	};
+});
+
 </script>
 
 <div class={cn('flex flex-col h-full', className)}>
@@ -159,10 +246,10 @@
 		{/if}
 
 		<!-- Conversations List -->
-		<div class="flex-1 overflow-hidden">
-			<TabsContent value={activeTab} class="h-full m-0">
-				<ScrollArea class="h-full">
-					<div class="p-2 space-y-1">
+		<div class="flex-1 overflow-hidden min-h-0">
+			<TabsContent value={activeTab} class="h-full m-0 flex flex-col">
+				<div class="flex-1 overflow-y-auto min-h-0" bind:this={scrollContainer} onscroll={handleScroll} data-testid="conversations-scroll">
+					<div class="p-2 space-y-1" data-testid="conversations-list">
 						{#if filteredConversations().length === 0}
 							<div class="text-center py-8 text-muted-foreground text-sm">
 								{#if searchQuery.trim()}
@@ -200,10 +287,23 @@
 									</button>
 								{/if}
 							{/each}
-						{/if}
+
+							<!-- Loading more indicator -->
+							{#if isLoadingMore}
+								<div class="flex items-center justify-center py-4 text-muted-foreground">
+									<Loader2 class="h-5 w-5 animate-spin mr-2" />
+									<span class="text-sm">Cargando más conversaciones...</span>
+								</div>
+							{:else if !hasMore && filteredConversations().length > 0}
+								<div class="text-center py-4 text-muted-foreground text-xs">
+									No hay más conversaciones
+								</div>
+							{/if}
+							{/if}
+						</div>
+						<div bind:this={sentinel} aria-hidden="true"></div>
 					</div>
-				</ScrollArea>
-			</TabsContent>
-		</div>
-	</Tabs>
-</div>
+				</TabsContent>
+			</div>
+		</Tabs>
+	</div>
