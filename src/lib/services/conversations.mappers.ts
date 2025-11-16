@@ -1,0 +1,86 @@
+/**
+ * Conversations Mappers - Newton CRM
+ * Functions to map API responses to frontend types
+ */
+
+import type {
+  Conversation,
+  ConversationDetail,
+  Message,
+} from "$lib/types/inbox.types";
+
+/**
+ * Map API message format to frontend Message type
+ */
+export function mapApiMessage(apiMsg: any, conversationId: string): Message {
+  return {
+    id: apiMsg.id,
+    conversation_id: conversationId,
+    sender: apiMsg.sender || "contact",
+    sender_id: apiMsg.sender_id,
+    sender_name: apiMsg.sender_name,
+    content: apiMsg.content || "",
+    timestamp: apiMsg.timestamp || new Date().toISOString(),
+    read: true, // Assuming read for now
+    type: apiMsg.message_type || "text",
+    metadata: {
+      file_url: apiMsg.media_url,
+      file_name: apiMsg.media_filename,
+      file_size: apiMsg.media_size,
+      file_type: apiMsg.media_mimetype,
+      audio_duration: apiMsg.duration,
+      ...apiMsg.metadata,
+    },
+    internal: apiMsg.internal || false,
+  };
+}
+
+/**
+ * Map API conversation format to frontend Conversation type
+ */
+export function mapApiConversation(apiConv: any): Conversation {
+  return {
+    id: apiConv.id,
+    lead_id: apiConv.id, // Using conversation id as lead_id for now
+    contact_name: apiConv.name || "Sin nombre",
+    contact_phone: apiConv.phone || "",
+    contact_email: apiConv.email,
+    contact_avatar: apiConv.avatar_url,
+    last_message:
+      typeof apiConv.last_message === "string"
+        ? apiConv.last_message
+        : apiConv.last_message?.content || "",
+    last_message_time:
+      apiConv.last_message?.timestamp || new Date().toISOString(),
+    last_message_sender: apiConv.last_message?.sender || ("contact" as const),
+    unread_count: apiConv.unread_count || 0,
+    status: (apiConv.conversation_status === "attended"
+      ? "open"
+      : apiConv.conversation_status) as any,
+    assigned_agent: apiConv.assigned_agent,
+    channel: (apiConv.channel || "whatsapp") as any,
+    priority: apiConv.priority,
+    stage: apiConv.stage,
+    stage_id: apiConv.stage_id,
+    score: apiConv.score,
+    tags: apiConv.tags,
+  };
+}
+
+/**
+ * Map API conversation to ConversationDetail (with messages)
+ */
+export function mapApiConversationDetail(apiConv: any): ConversationDetail {
+  const baseConversation = mapApiConversation(apiConv);
+
+  // Map messages if they exist
+  const messages: Message[] = Array.isArray(apiConv.messages)
+    ? apiConv.messages.map((msg: any) => mapApiMessage(msg, apiConv.id))
+    : [];
+
+  return {
+    ...baseConversation,
+    messages,
+    lead: apiConv.lead,
+  };
+}
