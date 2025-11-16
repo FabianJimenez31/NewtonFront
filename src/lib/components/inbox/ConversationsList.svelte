@@ -78,7 +78,6 @@ let observer: IntersectionObserver | null = null;
 		// Load more when user is 100px from bottom
 		const threshold = 100;
 		if (scrollHeight - scrollTop - clientHeight < threshold) {
-			console.log("[SCROLL] Triggering loadMore from scroll handler");
 			onLoadMore();
 		}
 	}
@@ -248,8 +247,8 @@ $effect(() => {
 		<!-- Conversations List -->
 		<div class="flex-1 overflow-hidden min-h-0">
 			<TabsContent value={activeTab} class="h-full m-0 flex flex-col">
-				<div class="flex-1 overflow-y-auto min-h-0" bind:this={scrollContainer} onscroll={handleScroll} data-testid="conversations-scroll">
-					<div class="p-2 space-y-1" data-testid="conversations-list">
+				<div class="flex-1 overflow-y-auto min-h-0" bind:this={scrollContainer} onscroll={handleScroll}>
+					<div class="p-2 space-y-1">
 						{#if filteredConversations().length === 0}
 							<div class="text-center py-8 text-muted-foreground text-sm">
 								{#if searchQuery.trim()}
