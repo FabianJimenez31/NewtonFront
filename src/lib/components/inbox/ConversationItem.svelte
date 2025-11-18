@@ -78,6 +78,14 @@
 		medium: "text-yellow-500",
 		low: "text-blue-500",
 	};
+
+	// Convert hex to rgba with alpha
+	function hexToRgba(hex: string, alpha: number = 0.1): string {
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+	}
 </script>
 
 <button
@@ -164,7 +172,7 @@
 							variant="outline"
 							class="text-xs"
 							style={stageColor
-								? `border-color: ${stageColor}; color: ${stageColor}; background-color: ${stageColor}1A;`
+								? `border-color: ${stageColor}; color: ${stageColor}; background-color: ${hexToRgba(stageColor, 0.1)};`
 								: ""}
 						>
 							{stage}
