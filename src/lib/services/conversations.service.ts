@@ -105,8 +105,8 @@ export async function getConversation(
 ): Promise<ConversationDetail> {
   try {
     const endpoint = `${CONVERSATIONS_BASE}/lead/${id}`;
-    const response = await authenticatedFetchJSON<any>(endpoint, token, { 
-      timeout: 10000 
+    const response = await authenticatedFetchJSON<any>(endpoint, token, {
+      timeout: 10000
     });
 
     console.log(`[CONVERSATION] Fetched conversation, messages: ${response.messages?.length || 0}`);
@@ -297,11 +297,31 @@ export async function toggleAI(
  */
 export async function getAgents(token: string): Promise<Agent[]> {
   try {
-    return await authenticatedFetchJSON<Agent[]>(
-      `${CONVERSATIONS_BASE}/agents`,
+    const response = await authenticatedFetchJSON<any>(
+      `${API_BASE_URL}/users/`,
       token,
       { timeout: 5000 },
     );
+
+    let users: any[] = [];
+    if (Array.isArray(response)) {
+      users = response;
+    } else if (response?.users && Array.isArray(response.users)) {
+      users = response.users;
+    } else if (response?.data && Array.isArray(response.data)) {
+      users = response.data;
+    }
+
+    return users
+      .filter((u) => u.role === "agente")
+      .map((u) => ({
+        id: u.id,
+        name: u.name || u.full_name || u.username || u.email || "Sin nombre",
+        email: u.email || "",
+        role: u.role || "agent",
+        avatar: u.avatar_url || u.avatar,
+        is_online: u.is_online,
+      }));
   } catch (error) {
     throw new Error(handleApiError(error));
   }

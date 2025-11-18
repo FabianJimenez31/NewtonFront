@@ -6,16 +6,18 @@
 	 * This wrapper allows us to use the new unified cards without modifying core files
 	 */
 
-	import type { Stage, LeadKanban, KanbanFilters } from '$lib/types/kanban';
+	import type { LeadKanban, KanbanFilters } from '$lib/types/kanban';
 	import { authStore } from '$lib/stores/auth.store';
 	import { kanbanStore, visibleStages } from '$lib/stores/kanban.core.store';
 	import { validateTransition } from '$lib/services/kanban.core.service';
 	import { moveLeadToStage } from '$lib/services/kanban-proxy.service';
 	import KanbanColumn from './kanban.global.column.svelte';
-	import { Button, Badge } from '$lib/components/ui';
-	import { RefreshCw, Filter, Settings, AlertCircle } from 'lucide-svelte';
+	import BoardHeader from './BoardHeader.svelte';
+	import BoardEmptyState from './BoardEmptyState.svelte';
+	import { Button } from '$lib/components/ui';
+	import { RefreshCw, AlertCircle } from 'lucide-svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { formatCompactCurrency } from '$lib/utils/currency';
+	import { calculatePipelineMetrics } from '$lib/composables/usePipelineMetrics';
 
 	interface Props {
 		onLeadClick?: (lead: LeadKanban) => void;
@@ -35,8 +37,6 @@
 
 	let isRefreshing = $state(false);
 	let error = $state<string | null>(null);
-	let draggedLeadId = $state<string | null>(null);
-	let draggedFromStage = $state<string | null>(null);
 	let hasLoadedBoard = $state(false);
 
 	$effect(() => {
@@ -60,40 +60,13 @@
 			!!$kanbanStore.boardData
 	);
 
-	// Calculate total pipeline value
-	const totalPipelineValue = $derived(
-		$kanbanStore.boardData?.stages
-			? Object.values($kanbanStore.boardData.stages)
-				.flat()
-				.reduce((sum, lead) => sum + (lead.deal_value || 0), 0)
-			: 0
-	);
-
-	// Get predominant currency
-	const mainCurrency = $derived((() => {
-		if (!$kanbanStore.boardData?.stages) return 'USD';
-
-		const allLeads = Object.values($kanbanStore.boardData.stages).flat();
-		const currencies = allLeads
-			.filter(l => l.currency)
-			.map(l => l.currency!);
-
-		if (currencies.length === 0) return 'USD';
-
-		const counts = currencies.reduce((acc, curr) => {
-			acc[curr] = (acc[curr] || 0) + 1;
-			return acc;
-		}, {} as Record<string, number>);
-
-		return Object.entries(counts)
-			.sort(([, a], [, b]) => b - a)[0]?.[0] || 'USD';
-	})());
+	// Calculate pipeline metrics using composable
+	const pipelineMetrics = $derived(calculatePipelineMetrics($kanbanStore.boardData));
 
 	onMount(async () => {
 		console.log('[KANBAN BOARD] Mounting, auth state:', {
 			isAuthenticated: $authStore.isAuthenticated,
-			hasToken: !!$authStore.token,
-			token: $authStore.token ? `${$authStore.token.substring(0, 20)}...` : null
+			hasToken: !!$authStore.token
 		});
 
 		if (!$authStore.token) {
@@ -185,67 +158,16 @@
 			error = err instanceof Error ? err.message : 'Failed to move lead';
 		}
 	}
-
-	// Get total leads count
-	const totalLeadsCount = $derived(
-		$kanbanStore.boardData
-			? Object.values($kanbanStore.boardData.stages).reduce(
-					(sum, leads) => sum + leads.length,
-					0
-			  )
-			: 0
-	);
-
-	// Get total unread count
-	const totalUnreadCount = $derived(
-		$kanbanStore.boardData
-			? Object.values($kanbanStore.boardData.stages)
-					.flat()
-					.reduce((sum, lead) => sum + (lead.unread_count || 0), 0)
-			: 0
-	);
 </script>
 
 <div class="flex flex-col h-full px-3 sm:px-6 pb-4 {className}">
 	<!-- Board Header -->
-	<div class="flex items-center justify-between mb-4">
-		<div class="flex items-center gap-4">
-			<h2 class="text-2xl font-bold text-foreground">Pipeline de Ventas</h2>
-			<div class="flex items-center gap-2">
-				<Badge variant="secondary">
-					{totalLeadsCount} leads
-				</Badge>
-				{#if totalUnreadCount > 0}
-					<Badge variant="default">
-						{totalUnreadCount} sin leer
-					</Badge>
-				{/if}
-				{#if totalPipelineValue > 0}
-					<Badge variant="outline" class="font-semibold">
-						{formatCompactCurrency(totalPipelineValue, mainCurrency)}
-					</Badge>
-				{/if}
-			</div>
-		</div>
-
-		<div class="flex items-center gap-2">
-			<Button
-				variant="ghost"
-				size="icon"
-				onclick={handleRefresh}
-				disabled={isRefreshing}
-				class="relative"
-			>
-				<RefreshCw class="h-4 w-4 {isRefreshing ? 'animate-spin' : ''}" />
-			</Button>
-
-			{#if onConfigureClick}
-				<Button variant="ghost" size="icon" onclick={onConfigureClick}>
-					<Settings class="h-4 w-4" />
-				</Button>
-			{/if}
-		</div>
-	</div>
+	<BoardHeader
+		metrics={pipelineMetrics}
+		{isRefreshing}
+		onRefresh={handleRefresh}
+		{onConfigureClick}
+	/>
 
 	<!-- Error Display -->
 	{#if error}
@@ -300,19 +222,7 @@
 		</div>
 	{:else if !$kanbanStore.boardData || Object.keys($kanbanStore.boardData.stages).length === 0}
 		<!-- Empty State -->
-		<div class="flex items-center justify-center h-64">
-			<div class="text-center">
-				<AlertCircle class="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-				<p class="text-lg font-semibold mb-2">No hay datos disponibles</p>
-				<p class="text-muted-foreground mb-4">
-					No se encontraron leads o etapas configuradas
-				</p>
-				<Button onclick={handleRefresh} variant="ghost">
-					<RefreshCw class="h-4 w-4 mr-2" />
-					Reintentar
-				</Button>
-			</div>
-		</div>
+		<BoardEmptyState onRefresh={handleRefresh} />
 	{:else}
 		<!-- Kanban Columns -->
 		<div class="relative flex-1 overflow-x-auto">

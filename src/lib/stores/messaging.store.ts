@@ -11,8 +11,10 @@ import {
   sendFile,
   pollMessages,
 } from "$lib/services/conversations.service";
+import { getLead } from "$lib/services/leads.service";
 import { mapApiConversationDetail } from "$lib/services/conversations.mappers";
 import { conversations } from "./inbox.store";
+import { agents } from "./inbox.agents.store";
 import type { ConversationDetail, Message } from "$lib/types/inbox.types";
 
 // ==================== STATE ====================
@@ -93,8 +95,34 @@ export const messagingActions = {
     try {
       console.log("[MESSAGING] Fetching full conversation history from API");
 
-      // Fetch full conversation with all messages using lead_id
-      const conversation = await getConversation(token, id);
+      // Fetch conversation and lead info in parallel
+      // getConversation uses lead_id but returns conversation structure without agent info
+      // getLead returns lead structure with assigned_agent_id
+      const [conversation, lead] = await Promise.all([
+        getConversation(token, id),
+        getLead(token, id).catch(e => {
+          console.warn('[MESSAGING] Failed to fetch lead info:', e);
+          return null;
+        })
+      ]);
+
+      // Merge lead info if available
+      if (lead) {
+        conversation.assigned_agent_id = lead.assigned_agent_id || (lead.assigned_agent as any)?.id;
+        // If lead has the full agent object, use it
+        if (lead.assigned_agent) {
+          conversation.assigned_agent = lead.assigned_agent;
+        }
+      }
+
+      // Enrich with agent info if missing but ID is present
+      if (!conversation.assigned_agent && conversation.assigned_agent_id) {
+        const loadedAgents = get(agents);
+        const foundAgent = loadedAgents.find(a => a.id === conversation.assigned_agent_id);
+        if (foundAgent) {
+          conversation.assigned_agent = foundAgent;
+        }
+      }
 
       console.log(
         `[MESSAGING] Loaded ${conversation.messages?.length || 0} messages from API`,
@@ -135,11 +163,11 @@ export const messagingActions = {
       currentConversation.update((conv) =>
         conv
           ? {
-              ...conv,
-              last_message: content,
-              last_message_time: newMessage.timestamp,
-              last_message_sender: "agent",
-            }
+            ...conv,
+            last_message: content,
+            last_message_time: newMessage.timestamp,
+            last_message_sender: "agent",
+          }
           : null,
       );
     } catch (err) {
@@ -169,11 +197,11 @@ export const messagingActions = {
       currentConversation.update((conv) =>
         conv
           ? {
-              ...conv,
-              last_message: "🎤 Audio message",
-              last_message_time: newMessage.timestamp,
-              last_message_sender: "agent",
-            }
+            ...conv,
+            last_message: "🎤 Audio message",
+            last_message_time: newMessage.timestamp,
+            last_message_sender: "agent",
+          }
           : null,
       );
     } catch (err) {
@@ -203,11 +231,11 @@ export const messagingActions = {
       currentConversation.update((conv) =>
         conv
           ? {
-              ...conv,
-              last_message: `📎 ${file.name}`,
-              last_message_time: newMessage.timestamp,
-              last_message_sender: "agent",
-            }
+            ...conv,
+            last_message: `📎 ${file.name}`,
+            last_message_time: newMessage.timestamp,
+            last_message_sender: "agent",
+          }
           : null,
       );
     } catch (err) {

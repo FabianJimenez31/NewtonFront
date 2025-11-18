@@ -35,6 +35,7 @@
 	} from "$lib/stores/inbox.pagination.store";
 	import { paginationActions } from "$lib/stores/inbox.pagination.actions";
 	import { loadInboxWithPagination } from "$lib/stores/inbox.init";
+	import { agents, agentActions } from "$lib/stores/inbox.agents.store";
 
 	let token = $derived($authStore.token);
 	let searchQuery = $state("");
@@ -48,6 +49,7 @@
 			return;
 		}
 		await loadInboxWithPagination(token, "all");
+		agentActions.loadAgents(token);
 		// TODO: Enable polling when endpoint is ready
 		// messagingActions.startPolling(token, 5000);
 	});
@@ -161,6 +163,21 @@
 		}
 	}
 
+	function handleAssignAgent(agentId: string) {
+		if (!$currentConversation || !token) return;
+
+		// Use the actual lead ID from the lead object if available, otherwise fallback
+		const targetLeadId =
+			$currentConversation.lead?.id || $currentConversation.lead_id;
+
+		agentActions.assignAgent(
+			token,
+			$currentConversation.id,
+			targetLeadId,
+			agentId,
+		);
+	}
+
 	function formatTime(timestamp: string): string {
 		const date = new Date(timestamp);
 		const now = new Date();
@@ -255,6 +272,7 @@
 						name: $currentConversation.contact_name,
 						avatarUrl: $currentConversation.contact_avatar,
 						status: "offline",
+						assignedAgent: $currentConversation.assigned_agent,
 					}}
 					messages={$messages.map((m) => ({
 						id: m.id,
@@ -268,6 +286,8 @@
 					})) as any}
 					isLoading={$isLoadingMessages}
 					isSending={$isSending}
+					agents={$agents}
+					onAssign={handleAssignAgent}
 				>
 					{#snippet messageHeader(contact)}
 						<MessageHeader

@@ -51,8 +51,8 @@
 			: 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
 		className
 	)}
-	onclick={handleClick}
-	onkeydown={handleKeydown}
+	onclick={(e) => handleClick()}
+	onkeydown={(e) => handleKeydown(e)}
 >
 	{#if children}
 		{@render children()}

@@ -7,8 +7,7 @@ import { writable, derived, get } from "svelte/store";
 import {
   getInbox,
   getPriorityInbox,
-} from "$lib/services/conversations.inbox.service";
-import { getMockConversations } from "./inbox.mock";
+} from "$lib/services/conversations.service";
 import type {
   Conversation,
   ConversationDetail,
@@ -173,7 +172,7 @@ export const countByTab = derived([conversations], ([$conversations]) => {
 
 export const inboxActions = {
   /**
-   * Load inbox conversations (legacy, use loadInboxWithPagination instead)
+   * Load inbox conversations
    */
   async loadInbox(
     token: string,
@@ -189,11 +188,11 @@ export const inboxActions = {
         limit: 100,
       };
 
-      const response = priority
+      const data = priority
         ? await getPriorityInbox(token, params)
         : await getInbox(token, params);
 
-      conversations.set(response.conversations);
+      conversations.set(data);
       activeTab.set(tab);
     } catch (err) {
       error.set(err instanceof Error ? err.message : "Error loading inbox");
@@ -273,3 +272,121 @@ export const inboxActions = {
     );
   },
 };
+
+// ==================== MOCK DATA ====================
+
+function getMockConversations(): ConversationDetail[] {
+  return [
+    {
+      id: "1",
+      lead_id: "lead-1",
+      contact_name: "María González",
+      contact_email: "maria.gonzalez@email.com",
+      contact_phone: "+52 55 1234 5678",
+      contact_avatar: undefined,
+      last_message:
+        "Hola, estoy interesada en conocer más sobre sus servicios de CRM",
+      last_message_time: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+      last_message_sender: "contact",
+      unread_count: 2,
+      status: "open",
+      assigned_agent: {
+        id: "agent-1",
+        name: "Juan Pérez",
+        email: "juan@company.com",
+        avatar: undefined,
+        role: "sales",
+      },
+      channel: "whatsapp",
+      priority: "high",
+      stage: "Exploración",
+      stage_id: "stage-1",
+      score: 85,
+      tags: ["hot-lead", "enterprise"],
+        messages: [],
+    },
+    {
+      id: "2",
+      lead_id: "lead-2",
+      contact_name: "Carlos Rodríguez",
+      contact_phone: "+52 55 9876 5432",
+      last_message: "¿Cuándo podemos agendar una demo?",
+      last_message_time: new Date(
+        Date.now() - 2 * 60 * 60 * 1000,
+      ).toISOString(),
+      last_message_sender: "contact",
+      unread_count: 0,
+      status: "open",
+      assigned_agent: {
+        id: "agent-1",
+        name: "Juan Pérez",
+        email: "juan@company.com",
+        avatar: undefined,
+        role: "sales",
+      },
+      channel: "whatsapp",
+      priority: "medium",
+      stage: "Propuesta Enviada",
+      stage_id: "stage-3",
+      score: 72,
+        messages: [],
+    },
+    {
+      id: "3",
+      lead_id: "lead-3",
+      contact_name: "Ana Martínez",
+      contact_email: "ana.m@startup.io",
+      contact_phone: "+52 55 5555 1234",
+      last_message: "Gracias por la información, voy a revisarla con mi equipo",
+      last_message_time: new Date(
+        Date.now() - 1 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+      last_message_sender: "agent",
+      unread_count: 0,
+      status: "open",
+      channel: "email",
+      priority: "low",
+      stage: "Calificado",
+      stage_id: "stage-2",
+      score: 45,
+        messages: [],
+    },
+    {
+      id: "4",
+      lead_id: "lead-4",
+      contact_name: "Roberto Silva",
+      contact_phone: "+52 55 7777 8888",
+      last_message: "Me interesa el plan enterprise",
+      last_message_time: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      last_message_sender: "contact",
+      unread_count: 5,
+      status: "open",
+      channel: "whatsapp",
+      priority: "high",
+      stage: "En Negociación",
+      stage_id: "stage-4",
+      score: 92,
+      tags: ["vip"],
+        messages: [],
+    },
+    {
+      id: "5",
+      lead_id: "lead-5",
+      contact_name: "Laura Fernández",
+      contact_email: "laura.f@company.com",
+      contact_phone: "+52 55 3333 2222",
+      last_message: "¿Tienen integración con Salesforce?",
+      last_message_time: new Date(
+        Date.now() - 3 * 60 * 60 * 1000,
+      ).toISOString(),
+      last_message_sender: "contact",
+      unread_count: 1,
+      status: "open",
+      channel: "email",
+      stage: "Exploración",
+      stage_id: "stage-1",
+      score: 58,
+        messages: [],
+    },
+  ];
+}

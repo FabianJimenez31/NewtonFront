@@ -3,8 +3,9 @@
 	import { authStore } from '$lib/stores/auth.store';
 	import { kanbanStore } from '$lib/stores/kanban.core.store';
 	import { Button, Input, Label } from '$lib/components/ui';
-	import { validateStageData, isValidHexColor } from '$lib/services/kanban.validators';
-	import { getNextOrder } from '$lib/services/kanban.validators';
+	import { validateStageData, getNextOrder } from '$lib/services/kanban.validators';
+	import { normalizeColor, validateHexColor } from '$lib/utils/color.utils';
+	import ColorPicker from './ColorPicker.svelte';
 
 	interface Props {
 		stage?: Stage | null;
@@ -41,7 +42,7 @@
 
 		// Normalize color before submission
 		const normalizedColor = normalizeColor(color);
-		if (!/^#[0-9A-Fa-f]{6}$/.test(normalizedColor)) {
+		if (!validateHexColor(normalizedColor)) {
 			errors = ['El color debe estar en formato hexadecimal (#RRGGBB)'];
 			return;
 		}
@@ -113,43 +114,8 @@
 		}
 	}
 
-	function normalizeColor(value: string): string {
-		// Remove any spaces
-		let normalized = value.trim();
-
-		// Add # if missing
-		if (normalized && !normalized.startsWith('#')) {
-			normalized = '#' + normalized;
-		}
-
-		// Ensure it's uppercase for consistency
-		return normalized.toUpperCase();
-	}
-
-	function handleColorInput(e: Event) {
-		const input = e.target as HTMLInputElement;
-		let newColor = input.value;
-
-		// Allow user to type freely, we'll validate on blur
+	function handleColorChange(newColor: string) {
 		color = newColor;
-	}
-
-	function handleColorPickerChange(e: Event) {
-		const input = e.target as HTMLInputElement;
-		color = input.value.toUpperCase();
-	}
-
-	function handleColorBlur() {
-		// Normalize the color on blur
-		const normalized = normalizeColor(color);
-
-		// Validate hex format
-		if (/^#[0-9A-Fa-f]{6}$/.test(normalized)) {
-			color = normalized;
-		} else if (color.length === 0) {
-			// Reset to default if empty
-			color = '#71276F';
-		}
 	}
 </script>
 
@@ -181,32 +147,14 @@
 		</p>
 	</div>
 
-	<!-- Color -->
-	<div class="space-y-2">
-		<Label for="color">Color *</Label>
-		<div class="flex gap-2">
-			<input
-				id="color"
-				type="color"
-				value={color}
-				onchange={handleColorPickerChange}
-				class="h-10 w-20 cursor-pointer rounded-md border border-input"
-			/>
-			<Input
-				type="text"
-				value={color}
-				oninput={handleColorInput}
-				onblur={handleColorBlur}
-				placeholder="#71276F"
-				maxlength={7}
-				class="flex-1 font-mono"
-				required
-			/>
-		</div>
-		<p class="text-xs text-muted-foreground">
-			Selecciona un color para la columna en el kanban
-		</p>
-	</div>
+	<!-- Color Picker -->
+	<ColorPicker
+		value={color}
+		onchange={handleColorChange}
+		label="Color"
+		id="color"
+		required
+	/>
 
 	<!-- Stage Type (only for new stages) -->
 	{#if !stage}

@@ -65,6 +65,23 @@ npm run build
 npm preview
 ```
 
+## ✅ Tests
+
+- `npm run check` – Tipos, a11y y exports muertos con `svelte-check`.
+- `npm run test:e2e` – Ejecuta Playwright contra `npm run dev` (el servidor se inicia automáticamente). En la primera ejecución corre `npx playwright install --with-deps` para instalar los navegadores.
+
+### Variables para E2E autenticados
+
+Algunos escenarios (por ejemplo `/conversaciones`) requieren un usuario real:
+
+```bash
+export PLAYWRIGHT_ADMIN_EMAIL="admin@celucambio.com"
+export PLAYWRIGHT_ADMIN_PASSWORD="••••••"
+# Opcional si cambia el nombre del tenant visible en la UI
+export PLAYWRIGHT_TENANT_NAME="Celucambio Producción"
+npm run test:e2e
+```
+
 ## 🔐 Sistema de Autenticación Multi-Tenant
 
 ### Funcionalidades Implementadas

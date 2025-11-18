@@ -13,10 +13,32 @@ import type {
  * Map API message format to frontend Message type
  */
 export function mapApiMessage(apiMsg: any, conversationId: string): Message {
+  // Map API sender values to frontend types
+  let mappedSender: "agent" | "contact" | "system" | "ai" = "contact";
+
+  if (apiMsg.sender === "lead") {
+    // Lead = customer/contact
+    mappedSender = "contact";
+  } else if (apiMsg.sender === "agent") {
+    // Human agent
+    mappedSender = "agent";
+  } else if (apiMsg.sender === "system") {
+    // System messages from AI (usually have secure_ prefix)
+    // Most "system" messages are actually AI responses
+    if (apiMsg.id?.startsWith("secure_")) {
+      mappedSender = "ai";
+    } else {
+      mappedSender = "system";
+    }
+  } else if (apiMsg.sender === "ai_agent") {
+    // AI agent messages
+    mappedSender = "ai";
+  }
+
   return {
     id: apiMsg.id,
     conversation_id: conversationId,
-    sender: apiMsg.sender || "contact",
+    sender: mappedSender,
     sender_id: apiMsg.sender_id,
     sender_name: apiMsg.sender_name,
     content: apiMsg.content || "",
@@ -41,7 +63,7 @@ export function mapApiMessage(apiMsg: any, conversationId: string): Message {
 export function mapApiConversation(apiConv: any): Conversation {
   return {
     id: apiConv.id,
-    lead_id: apiConv.id, // Using conversation id as lead_id for now
+    lead_id: apiConv.lead_id || apiConv.lead?.id || apiConv.id,
     contact_name: apiConv.name || "Sin nombre",
     contact_phone: apiConv.phone || "",
     contact_email: apiConv.email,
@@ -58,6 +80,7 @@ export function mapApiConversation(apiConv: any): Conversation {
       ? "open"
       : apiConv.conversation_status) as any,
     assigned_agent: apiConv.assigned_agent,
+    assigned_agent_id: apiConv.assigned_agent_id,
     channel: (apiConv.channel || "whatsapp") as any,
     priority: apiConv.priority,
     stage: apiConv.stage,

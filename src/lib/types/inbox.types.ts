@@ -50,6 +50,7 @@ export interface Conversation {
   unread_count: number;
   status: ConversationStatus;
   assigned_agent?: Agent;
+  assigned_agent_id?: string;
   channel: Channel;
   priority?: Priority;
   stage?: string;
@@ -116,6 +117,7 @@ export interface LeadDetail {
   score: number;
   priority: Priority;
   assigned_agent?: Agent;
+  assigned_agent_id?: string;
   created_at: string;
   updated_at: string;
   last_contact: string;
@@ -155,6 +157,20 @@ export interface AIStatus {
 }
 
 // ==================== API RESPONSES ====================
+
+export interface InboxResponse {
+  conversations: ConversationDetail[];
+  total: number;
+  page: number;
+  pages: number;
+  has_more: boolean;
+  status_counts?: {
+    pending: number;
+    unattended: number;
+    attended: number;
+    all: number;
+  };
+}
 
 export interface SendMessageResponse {
   message: Message;

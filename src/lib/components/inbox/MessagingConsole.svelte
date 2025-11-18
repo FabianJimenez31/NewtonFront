@@ -1,61 +1,93 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import type { Snippet } from 'svelte';
+	import { cn } from "$lib/utils";
+	import { onMount, tick } from "svelte";
+	import ConsoleHeader from "./ConsoleHeader.svelte";
+	import MessageBubble from "./MessageBubble.svelte";
+	import MessageSystem from "./message-bubble/MessageSystem.svelte";
+	import Composer from "./Composer.svelte";
+	import type { Agent } from "$lib/types/inbox.types";
 
 	interface Message {
 		id: string;
 		content: string;
-		sender: 'customer' | 'agent' | 'system';
+		sender: "customer" | "agent" | "system" | "ai";
 		timestamp: string;
-		type?: 'text' | 'audio' | 'file' | 'image';
+		type?: "text" | "audio" | "file" | "image";
 		fileUrl?: string;
 		fileName?: string;
 		isInternal?: boolean;
+		status?: "sending" | "sent" | "delivered" | "read" | "failed";
 	}
 
 	interface Contact {
 		id: string;
 		name: string;
 		avatarUrl?: string;
-		status?: 'online' | 'offline';
+		status?: "online" | "offline";
+		stage?: string;
+		assignedAgent?: Agent;
+	}
+
+	interface Stage {
+		id: string;
+		name: string;
+		color?: string;
 	}
 
 	interface Props {
 		contact?: Contact;
 		messages?: Message[];
+		agents?: Agent[];
+		stages?: Stage[];
 		isLoading?: boolean;
 		isSending?: boolean;
-		messageHeader?: Snippet<[Contact]>;
-		messageHistory?: Snippet<[Message[]]>;
-		replyBox?: Snippet;
-		quickActions?: Snippet;
-		onSendMessage?: (content: string) => void;
-		onSendAudio?: (file: File) => void;
-		onSendFile?: (file: File) => void;
+		onSendMessage?: (
+			content: string,
+			type: "text" | "audio" | "file",
+			isInternal: boolean,
+		) => void;
+		onAssign?: (agentId: string) => void;
+		onStageChange?: (stageId: string) => void;
 		class?: string;
 	}
 
 	let {
 		contact,
 		messages = [],
+		agents = [],
+		stages = [],
 		isLoading = false,
 		isSending = false,
-		messageHeader,
-		messageHistory,
-		replyBox,
-		quickActions,
 		onSendMessage,
-		onSendAudio,
-		onSendFile,
-		class: className
+		onAssign,
+		onStageChange,
+		class: className,
 	}: Props = $props();
+
+	let scrollContainer: HTMLDivElement | undefined = $state();
+
+	function scrollToBottom() {
+		if (scrollContainer) {
+			scrollContainer.scrollTop = scrollContainer.scrollHeight;
+		}
+	}
+
+	$effect(() => {
+		if (messages.length) {
+			tick().then(scrollToBottom);
+		}
+	});
 </script>
 
-<div class={cn('flex flex-col h-full bg-background', className)}>
+<div class={cn("flex flex-col h-full bg-background", className)}>
 	{#if !contact}
 		<!-- Empty State: No conversation selected -->
-		<div class="flex flex-col items-center justify-center h-full text-center px-6">
-			<div class="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+		<div
+			class="flex flex-col items-center justify-center h-full text-center px-6"
+		>
+			<div
+				class="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4"
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-8 w-8 text-muted-foreground"
@@ -75,46 +107,59 @@
 				Selecciona una conversación
 			</h3>
 			<p class="text-sm text-muted-foreground max-w-sm">
-				Elige una conversación de la lista para ver el historial de mensajes y comenzar a
-				chatear.
+				Elige una conversación de la lista para ver el historial de
+				mensajes y comenzar a chatear.
 			</p>
 		</div>
 	{:else}
-		<!-- Message Header -->
-		<div class="border-b border-border flex-shrink-0">
-			{#if messageHeader}
-				{@render messageHeader(contact)}
-			{/if}
-		</div>
+		<!-- Header -->
+		<ConsoleHeader {contact} {agents} {stages} {onAssign} {onStageChange} />
 
 		<!-- Message History -->
-		<div class="flex-1 overflow-hidden">
+		<div
+			bind:this={scrollContainer}
+			class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
+		>
 			{#if isLoading}
 				<div class="flex items-center justify-center h-full">
 					<div class="flex flex-col items-center gap-3">
 						<div
 							class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"
 						></div>
-						<p class="text-sm text-muted-foreground">Cargando mensajes...</p>
+						<p class="text-sm text-muted-foreground">
+							Cargando mensajes...
+						</p>
 					</div>
 				</div>
-			{:else if messageHistory}
-				{@render messageHistory(messages)}
+			{:else}
+				{#each messages as message (message.id)}
+					{#if message.sender === "system"}
+						<MessageSystem
+							content={message.content}
+							timestamp={message.timestamp}
+						/>
+					{:else}
+						<MessageBubble
+							id={message.id}
+							content={message.content}
+							sender={message.sender}
+							timestamp={message.timestamp}
+							type={message.type}
+							fileUrl={message.fileUrl}
+							fileName={message.fileName}
+							isInternal={message.isInternal}
+							status={message.status}
+						/>
+					{/if}
+				{/each}
 			{/if}
 		</div>
 
-		<!-- Quick Actions (optional) -->
-		{#if quickActions}
-			<div class="border-t border-border px-4 py-2 bg-muted/30">
-				{@render quickActions()}
-			</div>
-		{/if}
-
-		<!-- Reply Box -->
-		<div class="border-t border-border flex-shrink-0">
-			{#if replyBox}
-				{@render replyBox()}
-			{/if}
-		</div>
+		<!-- Composer -->
+		<Composer
+			onSend={(content, type, isInternal) =>
+				onSendMessage?.(content, type, isInternal)}
+			isAiEnabled={true}
+		/>
 	{/if}
 </div>

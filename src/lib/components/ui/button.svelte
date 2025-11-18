@@ -3,7 +3,7 @@
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { Snippet } from 'svelte';
 
-	type ButtonVariant = 'default' | 'secondary' | 'tertiary' | 'ghost' | 'link';
+	type ButtonVariant = 'default' | 'secondary' | 'tertiary' | 'ghost' | 'link' | 'outline';
 	type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
 
 	interface Props extends HTMLButtonAttributes {
@@ -26,7 +26,8 @@
 		secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/90',
 		tertiary: 'bg-tertiary text-tertiary-foreground hover:bg-tertiary/90',
 		ghost: 'hover:bg-accent hover:text-accent-foreground',
-		link: 'text-primary underline-offset-4 hover:underline'
+		link: 'text-primary underline-offset-4 hover:underline',
+		outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground'
 	};
 
 	const sizes: Record<ButtonSize, string> = {
