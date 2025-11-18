@@ -1,44 +1,53 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import InboxLayout from '$lib/components/inbox/InboxLayout.svelte';
-	import ConversationsList from '$lib/components/inbox/ConversationsList.svelte';
-	import ConversationItem from '$lib/components/inbox/ConversationItem.svelte';
-	import ConversationFilters from '$lib/components/inbox/ConversationFilters.svelte';
-	import MessagingConsole from '$lib/components/inbox/MessagingConsole.svelte';
-	import MessageHeader from '$lib/components/inbox/MessageHeader.svelte';
-	import MessageHistory from '$lib/components/inbox/MessageHistory.svelte';
-	import MessageBubble from '$lib/components/inbox/MessageBubble.svelte';
-	import ReplyBox from '$lib/components/inbox/ReplyBox.svelte';
-	import ContactDetailsPanel from '$lib/components/inbox/ContactDetailsPanel.svelte';
-	import { ThinkingLoader } from '$lib/components/ui';
+	import { onMount, onDestroy } from "svelte";
+	import InboxLayout from "$lib/components/inbox/InboxLayout.svelte";
+	import ConversationsList from "$lib/components/inbox/ConversationsList.svelte";
+	import ConversationItem from "$lib/components/inbox/ConversationItem.svelte";
+	import ConversationFilters from "$lib/components/inbox/ConversationFilters.svelte";
+	import MessagingConsole from "$lib/components/inbox/MessagingConsole.svelte";
+	import MessageHeader from "$lib/components/inbox/MessageHeader.svelte";
+	import MessageHistory from "$lib/components/inbox/MessageHistory.svelte";
+	import MessageBubble from "$lib/components/inbox/MessageBubble.svelte";
+	import ReplyBox from "$lib/components/inbox/ReplyBox.svelte";
+	import ContactDetailsPanel from "$lib/components/inbox/ContactDetailsPanel.svelte";
+	import { ThinkingLoader } from "$lib/components/ui";
 	import {
 		filteredConversations,
 		activeTab,
 		isLoading,
 		error,
-		inboxActions
-	} from '$lib/stores/inbox.store';
+		inboxActions,
+		countByTab,
+	} from "$lib/stores/inbox.store";
 	import {
 		currentConversation,
 		messages,
 		isLoadingMessages,
 		isSending,
-		messagingActions
-	} from '$lib/stores/messaging.store';
-	import { authStore } from '$lib/stores/auth.store';
-	import { sortedStages } from '$lib/stores/kanban.core.store';
-	import { toggleAI, pauseAI, resumeAI } from '$lib/services/ai.service';
+		messagingActions,
+	} from "$lib/stores/messaging.store";
+	import { authStore } from "$lib/stores/auth.store";
+	import { sortedStages } from "$lib/stores/kanban.core.store";
+	import { toggleAI, pauseAI, resumeAI } from "$lib/services/ai.service";
+	import {
+		paginationSummary as paginationDetails,
+		isPageLoading,
+	} from "$lib/stores/inbox.pagination.store";
+	import { paginationActions } from "$lib/stores/inbox.pagination.actions";
+	import { loadInboxWithPagination } from "$lib/stores/inbox.init";
 
 	let token = $derived($authStore.token);
-	let searchQuery = $state('');
-	let replyMessage = $state('');
+	let searchQuery = $state("");
+	let replyMessage = $state("");
+	let pagination = $derived($paginationDetails);
+	let isPaginating = $derived($isPageLoading);
 
 	onMount(async () => {
 		if (!token) {
-			console.error('[INBOX] No auth token');
+			console.error("[INBOX] No auth token");
 			return;
 		}
-		await inboxActions.loadInbox(token, 'all');
+		await loadInboxWithPagination(token, "all");
 		// TODO: Enable polling when endpoint is ready
 		// messagingActions.startPolling(token, 5000);
 	});
@@ -50,23 +59,42 @@
 
 	async function selectConversation(id: string) {
 		if (!token) return;
+
+		// Find the conversation to get its lead_id
+		const conversation = $filteredConversations.find((c) => c.id === id);
+		if (!conversation) {
+			console.error("[INBOX] Conversation not found:", id);
+			return;
+		}
+
+		// Select conversation by ID for UI highlighting
 		inboxActions.selectConversation(id);
-		await messagingActions.loadConversation(token, id);
+
+		// Load conversation details using lead_id (the endpoint expects lead_id, not conversation id)
+		await messagingActions.loadConversation(token, conversation.lead_id);
+
+		// Mark as read using conversation id
 		inboxActions.markAsRead(id);
 	}
 
-	async function changeTab(tab: 'all' | 'mine' | 'unassigned') {
+	async function changeTab(tab: "all" | "mine" | "unassigned") {
 		if (!token) return;
-		await inboxActions.loadInbox(token, tab);
+		await loadInboxWithPagination(token, tab);
+	}
+
+	async function goToPage(page: number) {
+		if (!token) return;
+		if (pagination?.page === page) return;
+		await paginationActions.loadPage(token, page);
 	}
 
 	async function sendMessage(msg: string) {
 		if (!token || !msg.trim()) return;
 		try {
 			await messagingActions.sendTextMessage(token, msg);
-			replyMessage = '';
+			replyMessage = "";
 		} catch (err) {
-			console.error('Send failed:', err);
+			console.error("Send failed:", err);
 		}
 	}
 
@@ -75,7 +103,7 @@
 		try {
 			await messagingActions.sendFileMessage(token, file);
 		} catch (err) {
-			console.error('File send failed:', err);
+			console.error("File send failed:", err);
 		}
 	}
 
@@ -84,18 +112,26 @@
 		try {
 			await messagingActions.sendAudioMessage(token, file);
 		} catch (err) {
-			console.error('Audio send failed:', err);
+			console.error("Audio send failed:", err);
 		}
 	}
 
 	async function handleAIToggle(enabled: boolean, reason?: string) {
 		if (!token || !$currentConversation?.lead) return;
 		try {
-			await toggleAI(token, $currentConversation.lead.id, enabled, reason);
+			await toggleAI(
+				token,
+				$currentConversation.lead.id,
+				enabled,
+				reason,
+			);
 			// Reload conversation to get updated AI status
-			await messagingActions.loadConversation(token, $currentConversation.id);
+			await messagingActions.loadConversation(
+				token,
+				$currentConversation.id,
+			);
 		} catch (err) {
-			console.error('AI toggle failed:', err);
+			console.error("AI toggle failed:", err);
 		}
 	}
 
@@ -103,9 +139,12 @@
 		if (!token || !$currentConversation?.lead) return;
 		try {
 			await pauseAI(token, $currentConversation.lead.id, reason);
-			await messagingActions.loadConversation(token, $currentConversation.id);
+			await messagingActions.loadConversation(
+				token,
+				$currentConversation.id,
+			);
 		} catch (err) {
-			console.error('AI pause failed:', err);
+			console.error("AI pause failed:", err);
 		}
 	}
 
@@ -113,9 +152,12 @@
 		if (!token || !$currentConversation?.lead) return;
 		try {
 			await resumeAI(token, $currentConversation.lead.id);
-			await messagingActions.loadConversation(token, $currentConversation.id);
+			await messagingActions.loadConversation(
+				token,
+				$currentConversation.id,
+			);
 		} catch (err) {
-			console.error('AI resume failed:', err);
+			console.error("AI resume failed:", err);
 		}
 	}
 
@@ -127,11 +169,14 @@
 		const diffHours = Math.floor(diffMs / 3600000);
 		const diffDays = Math.floor(diffMs / 86400000);
 
-		if (diffMins < 1) return 'Ahora';
+		if (diffMins < 1) return "Ahora";
 		if (diffMins < 60) return `Hace ${diffMins} min`;
 		if (diffHours < 24) return `Hace ${diffHours}h`;
 		if (diffDays < 7) return `Hace ${diffDays}d`;
-		return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+		return date.toLocaleDateString("es-ES", {
+			day: "numeric",
+			month: "short",
+		});
 	}
 </script>
 
@@ -139,127 +184,140 @@
 	<title>Conversaciones - Newton CRM</title>
 </svelte:head>
 
-{#if $error}
-	<div class="bg-destructive text-destructive-foreground p-4 text-center">
-		<p class="text-sm font-medium">{$error}</p>
-	</div>
-{/if}
+<div class="h-full flex flex-col">
+	{#if $error}
+		<div class="bg-destructive text-destructive-foreground p-4 text-center">
+			<p class="text-sm font-medium">{$error}</p>
+		</div>
+	{/if}
 
-<InboxLayout>
-	{#snippet conversationsList()}
-		<ConversationsList
-			conversations={$filteredConversations.map((c) => ({
-				id: c.id,
-				contactName: c.contact_name,
-				lastMessage: c.last_message,
-				timestamp: formatTime(c.last_message_time),
-				unreadCount: c.unread_count,
-				assigned: !!c.assigned_agent,
-				priority: c.priority,
-				channel: c.channel,
-				stage: c.stage
-			}))}
-			bind:activeTab={$activeTab}
-			bind:searchQuery
-			onConversationSelect={selectConversation}
-			onTabChange={changeTab}
-			onSearchChange={(q) => inboxActions.updateFilters({ search: q })}
-		>
-			{#snippet conversationItem(conv)}
-				<ConversationItem
-					id={conv.id}
-					contactName={conv.contactName}
-					lastMessage={conv.lastMessage}
-					timestamp={conv.timestamp}
-					unreadCount={conv.unreadCount}
-					priority={conv.priority}
-					channel={conv.channel as any}
-					stage={conv.stage}
-					onclick={() => selectConversation(conv.id)}
-				/>
-			{/snippet}
-
-			{#snippet filters()}
-				<ConversationFilters
-					availableStages={$sortedStages.map((s: any) => ({
-						id: s.id,
-						name: s.name,
-						color: s.color
-					}))}
-					onClearFilters={() => inboxActions.clearFilters()}
-				/>
-			{/snippet}
-		</ConversationsList>
-	{/snippet}
-
-	{#snippet messagingConsole()}
-		{#if $isLoading}
-			<div class="flex items-center justify-center h-full">
-				<ThinkingLoader message="Cargando conversaciones..." />
-			</div>
-		{:else if $currentConversation}
-			<MessagingConsole
-				contact={{
-					id: $currentConversation.lead_id,
-					name: $currentConversation.contact_name,
-					avatarUrl: $currentConversation.contact_avatar,
-					status: 'offline'
-				}}
-				messages={$messages.map((m) => ({
-					id: m.id,
-					content: m.content,
-					sender: m.sender === 'contact' ? 'customer' : m.sender === 'agent' ? 'agent' : 'system',
-					timestamp: m.timestamp,
-					type: m.type,
-					fileUrl: m.metadata?.file_url,
-					fileName: m.metadata?.file_name,
-					isInternal: m.internal
-				})) as any}
-				isLoading={$isLoadingMessages}
-				isSending={$isSending}
+	<InboxLayout class="flex-1">
+		{#snippet conversationsList()}
+			<ConversationsList
+				conversations={$filteredConversations.map((c) => ({
+					id: c.id,
+					contactName: c.contact_name,
+					lastMessage: c.last_message,
+					timestamp: formatTime(c.last_message_time),
+					unreadCount: c.unread_count,
+					assigned: !!c.assigned_agent,
+					priority: c.priority,
+					channel: c.channel,
+					stage: c.stage,
+				}))}
+				bind:activeTab={$activeTab}
+				bind:searchQuery
+				{pagination}
+				{isPaginating}
+				onConversationSelect={selectConversation}
+				onTabChange={changeTab}
+				onSearchChange={(q) =>
+					inboxActions.updateFilters({ search: q })}
+				onPageChange={goToPage}
+				counts={$countByTab}
 			>
-				{#snippet messageHeader(contact)}
-					<MessageHeader
-						contactName={contact.name}
-						avatarUrl={contact.avatarUrl}
-						channel={$currentConversation?.channel}
+				{#snippet conversationItem(conv)}
+					<ConversationItem
+						id={conv.id}
+						contactName={conv.contactName}
+						lastMessage={conv.lastMessage}
+						timestamp={conv.timestamp}
+						unreadCount={conv.unreadCount}
+						priority={conv.priority}
+						channel={conv.channel as any}
+						stage={conv.stage}
+						onclick={() => selectConversation(conv.id)}
 					/>
 				{/snippet}
 
-				{#snippet messageHistory(msgs)}
-					<MessageHistory messages={msgs} autoScroll={true}>
-						{#snippet messageBubble(msg)}
-							<MessageBubble {...msg} />
-						{/snippet}
-					</MessageHistory>
-				{/snippet}
-
-				{#snippet replyBox()}
-					<ReplyBox
-						bind:value={replyMessage}
-						isSending={$isSending}
-						onSend={sendMessage}
-						onSendFile={sendFile}
-						onSendAudio={sendAudio}
+				{#snippet filters()}
+					<ConversationFilters
+						availableStages={$sortedStages.map((s: any) => ({
+							id: s.id,
+							name: s.name,
+							color: s.color,
+						}))}
+						onClearFilters={() => inboxActions.clearFilters()}
 					/>
 				{/snippet}
-			</MessagingConsole>
-		{:else}
-			<div class="flex flex-col items-center justify-center h-full text-muted-foreground">
-				<div class="text-6xl mb-4">💬</div>
-				<p class="text-lg font-medium">Selecciona una conversación</p>
-				<p class="text-sm mt-2">Elige una conversación para empezar a chatear</p>
-			</div>
-		{/if}
-	{/snippet}
+			</ConversationsList>
+		{/snippet}
 
-	{#snippet contactDetails()}
-		<ContactDetailsPanel
-			conversation={$currentConversation}
-			availableStages={$sortedStages}
-			onAIToggle={handleAIToggle}
-			onAIPause={handleAIPause}
-			onAIResume={handleAIResume}
-		/>
-	{/snippet}
-</InboxLayout>
+		{#snippet messagingConsole()}
+			{#if $isLoading}
+				<div class="flex items-center justify-center h-full">
+					<ThinkingLoader message="Cargando conversaciones..." />
+				</div>
+			{:else if $currentConversation}
+				<MessagingConsole
+					contact={{
+						id: $currentConversation.lead_id,
+						name: $currentConversation.contact_name,
+						avatarUrl: $currentConversation.contact_avatar,
+						status: "offline",
+					}}
+					messages={$messages.map((m) => ({
+						id: m.id,
+						content: m.content,
+						sender: m.sender === "contact" ? "customer" : m.sender,
+						timestamp: m.timestamp,
+						type: m.type,
+						fileUrl: m.metadata?.file_url,
+						fileName: m.metadata?.file_name,
+						isInternal: m.internal,
+					})) as any}
+					isLoading={$isLoadingMessages}
+					isSending={$isSending}
+				>
+					{#snippet messageHeader(contact)}
+						<MessageHeader
+							contactName={contact.name}
+							avatarUrl={contact.avatarUrl}
+							channel={$currentConversation?.channel}
+						/>
+					{/snippet}
+
+					{#snippet messageHistory(msgs)}
+						<MessageHistory messages={msgs} autoScroll={true}>
+							{#snippet messageBubble(msg)}
+								<MessageBubble {...msg} />
+							{/snippet}
+						</MessageHistory>
+					{/snippet}
+
+					{#snippet replyBox()}
+						<ReplyBox
+							bind:value={replyMessage}
+							isSending={$isSending}
+							onSend={sendMessage}
+							onSendFile={sendFile}
+							onSendAudio={sendAudio}
+						/>
+					{/snippet}
+				</MessagingConsole>
+			{:else}
+				<div
+					class="flex flex-col items-center justify-center h-full text-muted-foreground"
+				>
+					<div class="text-6xl mb-4">💬</div>
+					<p class="text-lg font-medium">
+						Selecciona una conversación
+					</p>
+					<p class="text-sm mt-2">
+						Elige una conversación para empezar a chatear
+					</p>
+				</div>
+			{/if}
+		{/snippet}
+
+		{#snippet contactDetails()}
+			<ContactDetailsPanel
+				conversation={$currentConversation}
+				availableStages={$sortedStages}
+				onAIToggle={handleAIToggle}
+				onAIPause={handleAIPause}
+				onAIResume={handleAIResume}
+			/>
+		{/snippet}
+	</InboxLayout>
+</div>
