@@ -84,17 +84,23 @@
 	<InboxLayout class="flex-1">
 		{#snippet conversationsList()}
 			<ConversationsList
-				conversations={$filteredConversations.map((c) => ({
-					id: c.id,
-					contactName: c.contact_name,
-					lastMessage: c.last_message,
-					timestamp: handlers.formatTime(c.last_message_time),
-					unreadCount: c.unread_count,
-					assigned: !!c.assigned_agent,
-					priority: c.priority,
-					channel: c.channel,
-					stage: c.stage,
-				}))}
+				conversations={$filteredConversations.map((c) => {
+					const stage = $sortedStages.find(
+						(s) => s.id === c.stage_id || s.name === c.stage,
+					);
+					return {
+						id: c.id,
+						contactName: c.contact_name,
+						lastMessage: c.last_message,
+						timestamp: handlers.formatTime(c.last_message_time),
+						unreadCount: c.unread_count,
+						assigned: !!c.assigned_agent,
+						priority: c.priority,
+						channel: c.channel,
+						stage: c.stage,
+						stageColor: stage?.color,
+					};
+				})}
 				bind:activeTab={$activeTab}
 				bind:searchQuery
 				{pagination}
@@ -116,6 +122,7 @@
 						priority={conv.priority}
 						channel={conv.channel as any}
 						stage={conv.stage}
+						stageColor={conv.stageColor}
 						onclick={() => handlers.selectConversation(conv.id)}
 					/>
 				{/snippet}

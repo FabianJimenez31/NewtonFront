@@ -1,7 +1,12 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import { Avatar, AvatarImage, AvatarFallback, Badge } from '$lib/components/ui';
-	import { MessageCircle, Phone, Mail } from 'lucide-svelte';
+	import { cn } from "$lib/utils";
+	import {
+		Avatar,
+		AvatarImage,
+		AvatarFallback,
+		Badge,
+	} from "$lib/components/ui";
+	import { MessageCircle, Phone, Mail } from "lucide-svelte";
 
 	interface Props {
 		id: string;
@@ -10,11 +15,18 @@
 		timestamp: string;
 		unreadCount?: number;
 		isSelected?: boolean;
-		priority?: 'high' | 'medium' | 'low';
-		channel?: 'whatsapp' | 'telegram' | 'instagram' | 'messenger' | 'email' | 'sms';
+		priority?: "high" | "medium" | "low";
+		channel?:
+			| "whatsapp"
+			| "telegram"
+			| "instagram"
+			| "messenger"
+			| "email"
+			| "sms";
 		avatarUrl?: string;
 		assignedAgent?: string;
 		stage?: string;
+		stageColor?: string;
 		onclick?: () => void;
 		class?: string;
 	}
@@ -27,24 +39,25 @@
 		unreadCount = 0,
 		isSelected = false,
 		priority,
-		channel = 'whatsapp',
+		channel = "whatsapp",
 		avatarUrl,
 		assignedAgent,
 		stage,
+		stageColor,
 		onclick,
-		class: className
+		class: className,
 	}: Props = $props();
 
 	// Get initials from contact name
 	const initials = $derived(
 		contactName
 			? contactName
-					.split(' ')
+					.split(" ")
 					.map((n) => n[0])
-					.join('')
+					.join("")
 					.toUpperCase()
 					.substring(0, 2)
-			: '??'
+			: "??",
 	);
 
 	// Channel icon mapping
@@ -54,26 +67,26 @@
 		instagram: MessageCircle,
 		messenger: MessageCircle,
 		email: Mail,
-		sms: Phone
+		sms: Phone,
 	};
 
 	const ChannelIcon = $derived(channelIcons[channel] || MessageCircle);
 
 	// Priority color mapping
 	const priorityColors = {
-		high: 'text-red-500',
-		medium: 'text-yellow-500',
-		low: 'text-blue-500'
+		high: "text-red-500",
+		medium: "text-yellow-500",
+		low: "text-blue-500",
 	};
 </script>
 
 <button
 	class={cn(
-		'w-full text-left p-3 rounded-lg transition-all duration-200',
-		'hover:bg-accent hover:shadow-sm',
-		'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-		isSelected && 'bg-accent border-l-4 border-primary shadow-sm',
-		className
+		"w-full text-left p-3 rounded-lg transition-all duration-200",
+		"hover:bg-accent hover:shadow-sm",
+		"focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+		isSelected && "bg-accent border-l-4 border-primary shadow-sm",
+		className,
 	)}
 	{onclick}
 	data-testid="conversation-item"
@@ -94,11 +107,21 @@
 			<!-- Header Row -->
 			<div class="flex items-center justify-between mb-1">
 				<div class="flex items-center gap-2 min-w-0">
-					<h4 class={cn('font-semibold text-sm truncate', unreadCount > 0 && 'text-foreground')}>
+					<h4
+						class={cn(
+							"font-semibold text-sm truncate",
+							unreadCount > 0 && "text-foreground",
+						)}
+					>
 						{contactName}
 					</h4>
 					{#if priority}
-						<div class={cn('w-2 h-2 rounded-full', priorityColors[priority])}></div>
+						<div
+							class={cn(
+								"w-2 h-2 rounded-full",
+								priorityColors[priority],
+							)}
+						></div>
 					{/if}
 				</div>
 
@@ -108,8 +131,11 @@
 
 					<!-- Unread Badge -->
 					{#if unreadCount > 0}
-						<Badge variant="default" class="h-5 min-w-5 px-1.5 text-xs">
-							{unreadCount > 99 ? '99+' : unreadCount}
+						<Badge
+							variant="default"
+							class="h-5 min-w-5 px-1.5 text-xs"
+						>
+							{unreadCount > 99 ? "99+" : unreadCount}
 						</Badge>
 					{/if}
 				</div>
@@ -118,8 +144,10 @@
 			<!-- Last Message -->
 			<p
 				class={cn(
-					'text-sm truncate mb-1',
-					unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'
+					"text-sm truncate mb-1",
+					unreadCount > 0
+						? "text-foreground font-medium"
+						: "text-muted-foreground",
 				)}
 			>
 				{lastMessage}
@@ -132,7 +160,13 @@
 				<div class="flex items-center gap-2">
 					<!-- Stage Badge -->
 					{#if stage}
-						<Badge variant="outline" class="text-xs">
+						<Badge
+							variant="outline"
+							class="text-xs"
+							style={stageColor
+								? `border-color: ${stageColor}; color: ${stageColor}; background-color: ${stageColor}1A;`
+								: ""}
+						>
 							{stage}
 						</Badge>
 					{/if}
