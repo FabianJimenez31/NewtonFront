@@ -34,7 +34,7 @@
 		messagingActions,
 	} from "$lib/stores/messaging.store";
 	import { authStore } from "$lib/stores/auth.store";
-	import { sortedStages } from "$lib/stores/kanban.core.store";
+	import { sortedStages, kanbanStore } from "$lib/stores/kanban.core.store";
 	import { createConversationHandlers } from "./conversation.handlers";
 
 	let token = $derived($authStore.token);
@@ -51,6 +51,9 @@
 			console.error("[INBOX] No auth token");
 			return;
 		}
+		// Load stages for color coding
+		kanbanStore.loadConfig(token);
+
 		await loadInboxWithPagination(token, "all");
 		agentActions.loadAgents(token);
 	});
