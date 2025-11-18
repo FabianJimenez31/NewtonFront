@@ -89,7 +89,9 @@
 			<ConversationsList
 				conversations={$filteredConversations.map((c) => {
 					const stage = $sortedStages.find(
-						(s) => s.id === c.stage_id || s.name === c.stage,
+						(s) =>
+							s.id === c.stage_id ||
+							s.name.toLowerCase() === c.stage?.toLowerCase(),
 					);
 					return {
 						id: c.id,
