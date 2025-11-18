@@ -20,6 +20,13 @@
 		countByTab,
 	} from "$lib/stores/inbox.store";
 	import {
+		paginationSummary,
+		isPageLoading,
+	} from "$lib/stores/inbox.pagination.store";
+	import { paginationActions } from "$lib/stores/inbox.pagination.actions";
+	import { loadInboxWithPagination } from "$lib/stores/inbox.init";
+	import { agents, agentActions } from "$lib/stores/inbox.agents.store";
+	import {
 		currentConversation,
 		messages,
 		isLoadingMessages,
@@ -28,20 +35,16 @@
 	} from "$lib/stores/messaging.store";
 	import { authStore } from "$lib/stores/auth.store";
 	import { sortedStages } from "$lib/stores/kanban.core.store";
-	import { toggleAI, pauseAI, resumeAI } from "$lib/services/ai.service";
-	import {
-		paginationSummary as paginationDetails,
-		isPageLoading,
-	} from "$lib/stores/inbox.pagination.store";
-	import { paginationActions } from "$lib/stores/inbox.pagination.actions";
-	import { loadInboxWithPagination } from "$lib/stores/inbox.init";
-	import { agents, agentActions } from "$lib/stores/inbox.agents.store";
+	import { createConversationHandlers } from "./conversation.handlers";
 
 	let token = $derived($authStore.token);
 	let searchQuery = $state("");
 	let replyMessage = $state("");
-	let pagination = $derived($paginationDetails);
+	let pagination = $derived($paginationSummary);
 	let isPaginating = $derived($isPageLoading);
+
+	// Initialize handlers with token getter
+	const handlers = createConversationHandlers(() => token);
 
 	onMount(async () => {
 		if (!token) {
@@ -50,8 +53,6 @@
 		}
 		await loadInboxWithPagination(token, "all");
 		agentActions.loadAgents(token);
-		// TODO: Enable polling when endpoint is ready
-		// messagingActions.startPolling(token, 5000);
 	});
 
 	onDestroy(() => {
@@ -59,141 +60,13 @@
 		messagingActions.clearConversation();
 	});
 
-	async function selectConversation(id: string) {
-		if (!token) return;
-
-		// Find the conversation to get its lead_id
-		const conversation = $filteredConversations.find((c) => c.id === id);
-		if (!conversation) {
-			console.error("[INBOX] Conversation not found:", id);
-			return;
-		}
-
-		// Select conversation by ID for UI highlighting
-		inboxActions.selectConversation(id);
-
-		// Load conversation details using lead_id (the endpoint expects lead_id, not conversation id)
-		await messagingActions.loadConversation(token, conversation.lead_id);
-
-		// Mark as read using conversation id
-		inboxActions.markAsRead(id);
-	}
-
-	async function changeTab(tab: "all" | "mine" | "unassigned") {
-		if (!token) return;
-		await loadInboxWithPagination(token, tab);
-	}
-
-	async function goToPage(page: number) {
-		if (!token) return;
-		if (pagination?.page === page) return;
-		await paginationActions.loadPage(token, page);
-	}
-
-	async function sendMessage(msg: string) {
-		if (!token || !msg.trim()) return;
+	async function onSendMessage(msg: string) {
 		try {
-			await messagingActions.sendTextMessage(token, msg);
+			await handlers.sendMessage(msg);
 			replyMessage = "";
 		} catch (err) {
-			console.error("Send failed:", err);
+			// Error handled in handler
 		}
-	}
-
-	async function sendFile(file: File) {
-		if (!token) return;
-		try {
-			await messagingActions.sendFileMessage(token, file);
-		} catch (err) {
-			console.error("File send failed:", err);
-		}
-	}
-
-	async function sendAudio(file: File) {
-		if (!token) return;
-		try {
-			await messagingActions.sendAudioMessage(token, file);
-		} catch (err) {
-			console.error("Audio send failed:", err);
-		}
-	}
-
-	async function handleAIToggle(enabled: boolean, reason?: string) {
-		if (!token || !$currentConversation?.lead) return;
-		try {
-			await toggleAI(
-				token,
-				$currentConversation.lead.id,
-				enabled,
-				reason,
-			);
-			// Reload conversation to get updated AI status
-			await messagingActions.loadConversation(
-				token,
-				$currentConversation.id,
-			);
-		} catch (err) {
-			console.error("AI toggle failed:", err);
-		}
-	}
-
-	async function handleAIPause(reason: string) {
-		if (!token || !$currentConversation?.lead) return;
-		try {
-			await pauseAI(token, $currentConversation.lead.id, reason);
-			await messagingActions.loadConversation(
-				token,
-				$currentConversation.id,
-			);
-		} catch (err) {
-			console.error("AI pause failed:", err);
-		}
-	}
-
-	async function handleAIResume() {
-		if (!token || !$currentConversation?.lead) return;
-		try {
-			await resumeAI(token, $currentConversation.lead.id);
-			await messagingActions.loadConversation(
-				token,
-				$currentConversation.id,
-			);
-		} catch (err) {
-			console.error("AI resume failed:", err);
-		}
-	}
-
-	function handleAssignAgent(agentId: string) {
-		if (!$currentConversation || !token) return;
-
-		// Use the actual lead ID from the lead object if available, otherwise fallback
-		const targetLeadId =
-			$currentConversation.lead?.id || $currentConversation.lead_id;
-
-		agentActions.assignAgent(
-			token,
-			$currentConversation.id,
-			targetLeadId,
-			agentId,
-		);
-	}
-
-	function formatTime(timestamp: string): string {
-		const date = new Date(timestamp);
-		const now = new Date();
-		const diffMs = now.getTime() - date.getTime();
-		const diffMins = Math.floor(diffMs / 60000);
-		const diffHours = Math.floor(diffMs / 3600000);
-		const diffDays = Math.floor(diffMs / 86400000);
-
-		if (diffMins < 1) return "Ahora";
-		if (diffMins < 60) return `Hace ${diffMins} min`;
-		if (diffHours < 24) return `Hace ${diffHours}h`;
-		if (diffDays < 7) return `Hace ${diffDays}d`;
-		return date.toLocaleDateString("es-ES", {
-			day: "numeric",
-			month: "short",
-		});
 	}
 </script>
 
@@ -215,7 +88,7 @@
 					id: c.id,
 					contactName: c.contact_name,
 					lastMessage: c.last_message,
-					timestamp: formatTime(c.last_message_time),
+					timestamp: handlers.formatTime(c.last_message_time),
 					unreadCount: c.unread_count,
 					assigned: !!c.assigned_agent,
 					priority: c.priority,
@@ -226,11 +99,11 @@
 				bind:searchQuery
 				{pagination}
 				{isPaginating}
-				onConversationSelect={selectConversation}
-				onTabChange={changeTab}
+				onConversationSelect={handlers.selectConversation}
+				onTabChange={handlers.changeTab}
 				onSearchChange={(q) =>
 					inboxActions.updateFilters({ search: q })}
-				onPageChange={goToPage}
+				onPageChange={handlers.goToPage}
 				counts={$countByTab}
 			>
 				{#snippet conversationItem(conv)}
@@ -243,7 +116,7 @@
 						priority={conv.priority}
 						channel={conv.channel as any}
 						stage={conv.stage}
-						onclick={() => selectConversation(conv.id)}
+						onclick={() => handlers.selectConversation(conv.id)}
 					/>
 				{/snippet}
 
@@ -287,7 +160,7 @@
 					isLoading={$isLoadingMessages}
 					isSending={$isSending}
 					agents={$agents}
-					onAssign={handleAssignAgent}
+					onAssign={handlers.handleAssignAgent}
 				>
 					{#snippet messageHeader(contact)}
 						<MessageHeader
@@ -309,9 +182,9 @@
 						<ReplyBox
 							bind:value={replyMessage}
 							isSending={$isSending}
-							onSend={sendMessage}
-							onSendFile={sendFile}
-							onSendAudio={sendAudio}
+							onSend={onSendMessage}
+							onSendFile={handlers.sendFile}
+							onSendAudio={handlers.sendAudio}
 						/>
 					{/snippet}
 				</MessagingConsole>
@@ -334,9 +207,9 @@
 			<ContactDetailsPanel
 				conversation={$currentConversation}
 				availableStages={$sortedStages}
-				onAIToggle={handleAIToggle}
-				onAIPause={handleAIPause}
-				onAIResume={handleAIResume}
+				onAIToggle={handlers.handleAIToggle}
+				onAIPause={handlers.handleAIPause}
+				onAIResume={handlers.handleAIResume}
 			/>
 		{/snippet}
 	</InboxLayout>
