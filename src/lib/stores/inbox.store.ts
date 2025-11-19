@@ -14,6 +14,9 @@ import type {
   ConversationDetail,
   InboxTab,
   InboxFilters,
+  ConversationStatus,
+  Priority,
+  Channel,
 } from "$lib/types/inbox.types";
 
 // ==================== STATE ====================
@@ -51,6 +54,8 @@ export const filteredConversations = derived(
     }
 
     let filtered = [...$conversations];
+    console.log("[INBOX STORE] Filtering with:", $filters);
+    console.log("[INBOX STORE] Initial count:", filtered.length);
 
     // Filter by tab
     if ($activeTab === "mine") {
@@ -74,29 +79,78 @@ export const filteredConversations = derived(
 
     // Apply status filter
     if ($filters.status) {
-      filtered = filtered.filter((c) => c.status === $filters.status);
+      if (Array.isArray($filters.status)) {
+        if ($filters.status.length > 0) {
+          filtered = filtered.filter((c) =>
+            ($filters.status as ConversationStatus[]).includes(c.status),
+          );
+        }
+      } else {
+        filtered = filtered.filter((c) => c.status === $filters.status);
+      }
     }
 
     // Apply priority filter
     if ($filters.priority) {
-      filtered = filtered.filter((c) => c.priority === $filters.priority);
+      if (Array.isArray($filters.priority)) {
+        if ($filters.priority.length > 0) {
+          filtered = filtered.filter(
+            (c) =>
+              c.priority &&
+              ($filters.priority as Priority[]).includes(c.priority),
+          );
+        }
+      } else {
+        filtered = filtered.filter((c) => c.priority === $filters.priority);
+      }
     }
 
     // Apply stage filter
     if ($filters.stage) {
-      filtered = filtered.filter((c) => c.stage === $filters.stage);
+      if (Array.isArray($filters.stage)) {
+        if ($filters.stage.length > 0) {
+          // Check strict match against stage (for legacy/ID-as-stage) or stage_id
+          filtered = filtered.filter(
+            (c) => {
+              const match = c.stage && ($filters.stage as string[]).includes(c.stage) ||
+                c.stage_id && ($filters.stage as string[]).includes(c.stage_id);
+              return match;
+            }
+          );
+        }
+      } else {
+        filtered = filtered.filter((c) => c.stage === $filters.stage || c.stage_id === $filters.stage);
+      }
     }
 
     // Apply agent filter
     if ($filters.agent) {
-      filtered = filtered.filter(
-        (c) => c.assigned_agent?.id === $filters.agent,
-      );
+      if (Array.isArray($filters.agent)) {
+        if ($filters.agent.length > 0) {
+          filtered = filtered.filter(
+            (c) =>
+              c.assigned_agent?.id &&
+              ($filters.agent as string[]).includes(c.assigned_agent.id),
+          );
+        }
+      } else {
+        filtered = filtered.filter(
+          (c) => c.assigned_agent?.id === $filters.agent,
+        );
+      }
     }
 
     // Apply channel filter
     if ($filters.channel) {
-      filtered = filtered.filter((c) => c.channel === $filters.channel);
+      if (Array.isArray($filters.channel)) {
+        if ($filters.channel.length > 0) {
+          filtered = filtered.filter((c) =>
+            ($filters.channel as Channel[]).includes(c.channel),
+          );
+        }
+      } else {
+        filtered = filtered.filter((c) => c.channel === $filters.channel);
+      }
     }
 
     // Apply tags filter

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
-	import type { Snippet } from 'svelte';
+	import { getContext } from "svelte";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		class?: string;
@@ -15,17 +15,18 @@
 		isOpen: boolean;
 		setOpen: (value: boolean) => void;
 		toggle: () => void;
-	}>('dropdown-menu');
+	}>("dropdown-menu");
 
 	function handleClick() {
+		console.log("[DROPDOWN TRIGGER] Clicked");
 		dropdownContext?.toggle();
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter' || event.key === ' ') {
+		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
 			handleClick();
-		} else if (event.key === 'ArrowDown') {
+		} else if (event.key === "ArrowDown") {
 			event.preventDefault();
 			dropdownContext?.setOpen(true);
 		}
@@ -34,7 +35,14 @@
 
 {#if asChild}
 	<!-- When asChild is true, render children directly with event handlers -->
-	<div onclick={handleClick} onkeydown={handleKeydown} role="button" tabindex="0">
+	<div
+		onclick={handleClick}
+		onkeydown={handleKeydown}
+		role="button"
+		tabindex="0"
+		aria-haspopup="true"
+		aria-expanded={dropdownContext?.isOpen}
+	>
 		{#if children}
 			{@render children()}
 		{/if}

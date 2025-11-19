@@ -18,62 +18,14 @@ import type {
   ApiError,
 } from "$lib/types/auth";
 
-const API_BASE = "https://crm.inewton.ai/api/v1/auth";
+import {
+  handleApiError,
+  authenticatedFetch,
+  authenticatedFetchJSON,
+  API_BASE_URL,
+} from "$lib/services/api.utils";
 
-/**
- * Handles API errors and returns formatted error message
- */
-function handleApiError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === "object" && error !== null && "detail" in error) {
-    return (error as ApiError).detail;
-  }
-  return "Error desconocido. Por favor intenta de nuevo.";
-}
-
-/**
- * Makes authenticated request with JWT token
- */
-async function authenticatedFetch(
-  url: string,
-  token: string,
-  options: RequestInit = {},
-) {
-  // Add timeout to prevent hanging
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout (reduced from 10)
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw error;
-    }
-
-    return response.json();
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === "AbortError") {
-      throw new Error(
-        "La solicitud tardó demasiado. Por favor intenta de nuevo.",
-      );
-    }
-    throw error;
-  }
-}
+const API_BASE = `${API_BASE_URL}/auth`;
 
 /**
  * Login with email and password (Traditional Single-Tenant)
@@ -195,7 +147,7 @@ export async function refreshToken(
   token: string,
 ): Promise<{ access_token: string }> {
   try {
-    return await authenticatedFetch(`${API_BASE}/refresh`, token, {
+    return await authenticatedFetchJSON(`${API_BASE}/refresh`, token, {
       method: "POST",
     });
   } catch (error) {
@@ -209,7 +161,7 @@ export async function refreshToken(
  */
 export async function getCurrentUser(token: string): Promise<User> {
   try {
-    return await authenticatedFetch(`${API_BASE}/me`, token);
+    return await authenticatedFetchJSON(`${API_BASE}/me`, token);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -221,7 +173,7 @@ export async function getCurrentUser(token: string): Promise<User> {
  */
 export async function logout(token: string): Promise<void> {
   try {
-    await authenticatedFetch(`${API_BASE}/logout`, token, {
+    await authenticatedFetchJSON(`${API_BASE}/logout`, token, {
       method: "POST",
     });
   } catch (error) {
@@ -235,7 +187,7 @@ export async function logout(token: string): Promise<void> {
  */
 export async function getTenants(token: string): Promise<unknown[]> {
   try {
-    return await authenticatedFetch(`${API_BASE}/tenants`, token);
+    return await authenticatedFetchJSON(`${API_BASE}/tenants`, token);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -277,7 +229,7 @@ export async function selectTenant(
   tempToken: string,
 ): Promise<LoginResponse> {
   try {
-    return await authenticatedFetch(`/api/auth/select-tenant`, tempToken, {
+    return await authenticatedFetchJSON(`/api/auth/select-tenant`, tempToken, {
       method: "POST",
       body: JSON.stringify(request),
     });
@@ -295,7 +247,7 @@ export async function switchTenant(
   token: string,
 ): Promise<LoginResponse> {
   try {
-    return await authenticatedFetch(`/api/auth/switch-tenant`, token, {
+    return await authenticatedFetchJSON(`/api/auth/switch-tenant`, token, {
       method: "POST",
       body: JSON.stringify(request),
     });

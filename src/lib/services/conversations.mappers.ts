@@ -84,7 +84,7 @@ export function mapApiConversation(apiConv: any): Conversation {
     channel: (apiConv.channel || "whatsapp") as any,
     priority: apiConv.priority,
     stage: apiConv.stage,
-    stage_id: apiConv.stage_id,
+    stage_id: apiConv.stage_id || apiConv.lead?.stage_id,
     score: apiConv.score,
     tags: apiConv.tags,
   };

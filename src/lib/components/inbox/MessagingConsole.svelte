@@ -34,6 +34,8 @@
 		color?: string;
 	}
 
+	import type { Snippet } from "svelte";
+
 	interface Props {
 		contact?: Contact;
 		messages?: Message[];
@@ -49,6 +51,9 @@
 		onAssign?: (agentId: string) => void;
 		onStageChange?: (stageId: string) => void;
 		class?: string;
+		messageHeader?: Snippet<[any]>;
+		messageHistory?: Snippet<[any]>;
+		replyBox?: Snippet<[]>;
 	}
 
 	let {
@@ -61,6 +66,9 @@
 		onSendMessage,
 		onAssign,
 		onStageChange,
+		messageHeader,
+		messageHistory,
+		replyBox,
 		class: className,
 	}: Props = $props();
 
@@ -113,7 +121,17 @@
 		</div>
 	{:else}
 		<!-- Header -->
-		<ConsoleHeader {contact} {agents} {stages} {onAssign} {onStageChange} />
+		{#if messageHeader}
+			{@render messageHeader(contact)}
+		{:else}
+			<ConsoleHeader
+				{contact}
+				{agents}
+				{stages}
+				{onAssign}
+				{onStageChange}
+			/>
+		{/if}
 
 		<!-- Message History -->
 		<div

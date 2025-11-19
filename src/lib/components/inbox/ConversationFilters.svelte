@@ -1,198 +1,209 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import { Button, Badge, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '$lib/components/ui';
-	import { Filter, X } from 'lucide-svelte';
+	import {
+		Button,
+		Badge,
+		DropdownMenu,
+		DropdownMenuTrigger,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuSeparator,
+		DropdownMenuLabel,
+		Input,
+		ScrollArea,
+	} from "$lib/components/ui";
+	import {
+		Filter,
+		X,
+		Check,
+		Search,
+		Square,
+		CheckSquare,
+	} from "lucide-svelte";
+
+	import type {
+		ConversationStatus,
+		Priority,
+		Channel,
+		InboxFilters,
+	} from "$lib/types/inbox.types";
 
 	interface FilterOptions {
-		status?: string[];
-		priority?: string[];
-		stage?: string[];
-		channel?: string[];
+		status: ConversationStatus[];
+		priority: Priority[];
+		stage: string[];
+		channel: Channel[];
 	}
 
 	interface Props {
-		activeFilters?: FilterOptions;
-		availableStages?: Array<{ id: string; name: string; color: string }>;
-		availableChannels?: Array<{ id: string; name: string }>;
-		onFilterChange?: (filters: FilterOptions) => void;
+		activeFilters: InboxFilters;
+		availableStages: { id: string; name: string; color: string }[];
+		availableChannels?: { id: Channel; name: string }[];
+		onFilterChange?: (filters: InboxFilters) => void;
 		onClearFilters?: () => void;
 		class?: string;
 	}
 
 	let {
-		activeFilters = $bindable({}),
+		activeFilters,
 		availableStages = [],
-		availableChannels = [
-			{ id: 'whatsapp', name: 'WhatsApp' },
-			{ id: 'telegram', name: 'Telegram' },
-			{ id: 'instagram', name: 'Instagram' },
-			{ id: 'messenger', name: 'Messenger' },
-			{ id: 'email', name: 'Email' },
-			{ id: 'sms', name: 'SMS' }
-		],
+		availableChannels = [],
 		onFilterChange,
 		onClearFilters,
-		class: className
+		class: className,
 	}: Props = $props();
 
-	// Available filter options
-	const statusOptions = [
-		{ id: 'open', name: 'Abierto' },
-		{ id: 'pending', name: 'Pendiente' },
-		{ id: 'resolved', name: 'Resuelto' }
-	];
+	let searchQuery = $state("");
 
-	const priorityOptions = [
-		{ id: 'high', name: 'Alta' },
-		{ id: 'medium', name: 'Media' },
-		{ id: 'low', name: 'Baja' }
-	];
-
-	// Count active filters
-	const activeFilterCount = $derived(
-		Object.values(activeFilters).reduce((sum, arr) => sum + (arr?.length || 0), 0)
+	// Filter stages based on search query
+	let filteredStages = $derived(
+		availableStages.filter((stage) =>
+			stage.name.toLowerCase().includes(searchQuery.toLowerCase()),
+		),
 	);
 
-	function toggleFilter(category: keyof FilterOptions, value: string) {
-		const current = activeFilters[category] || [];
+	function toggleFilter(category: keyof FilterOptions, value: string): void {
+		const current = (activeFilters[category] as string[]) || [];
 		const index = current.indexOf(value);
 
-		if (index > -1) {
-			// Remove filter
-			activeFilters[category] = current.filter((v) => v !== value);
+		if (index >= 0) {
+			activeFilters[category] = current.filter((v) => v !== value) as any;
 		} else {
-			// Add filter
-			activeFilters[category] = [...current, value];
+			activeFilters[category] = [...current, value] as any;
 		}
 
 		onFilterChange?.(activeFilters);
 	}
 
-	function isFilterActive(category: keyof FilterOptions, value: string): boolean {
-		return activeFilters[category]?.includes(value) || false;
-	}
-
 	function handleClearFilters() {
-		activeFilters = {};
 		onClearFilters?.();
 	}
+
+	function isFilterActive(
+		category: keyof FilterOptions,
+		value: string,
+	): boolean {
+		return (activeFilters[category] as any[])?.includes(value) || false;
+	}
+
+	let activeFilterCount = $derived(
+		(activeFilters.status?.length || 0) +
+			(activeFilters.priority?.length || 0) +
+			(activeFilters.stage?.length || 0) +
+			(activeFilters.channel?.length || 0),
+	);
 </script>
 
-<div class={cn('flex items-center gap-2', className)}>
+<div class={className}>
 	<!-- Filter Dropdown -->
 	<DropdownMenu>
 		<DropdownMenuTrigger asChild>
-			<Button variant="outline" size="sm" class="relative">
+			<Button variant="outline" size="sm" class="relative border-dashed">
 				<Filter class="h-4 w-4 mr-2" />
-				Filtros
+				Etapa
 				{#if activeFilterCount > 0}
-					<Badge variant="default" class="ml-2 h-5 min-w-5 px-1.5">
+					<Badge
+						variant="secondary"
+						class="ml-2 rounded-sm px-1 font-normal lg:hidden"
+					>
 						{activeFilterCount}
 					</Badge>
+					<div class="hidden space-x-1 lg:flex ml-2">
+						{#if activeFilters.stage?.length > 2}
+							<Badge
+								variant="secondary"
+								class="rounded-sm px-1 font-normal"
+							>
+								{activeFilters.stage.length} seleccionados
+							</Badge>
+						{:else if activeFilters.stage}
+							{#each activeFilters.stage as stageId}
+								{@const stage = availableStages.find(
+									(s) => s.id === stageId,
+								)}
+								{#if stage}
+									<Badge
+										variant="secondary"
+										class="rounded-sm px-1 font-normal"
+									>
+										{stage.name}
+									</Badge>
+								{/if}
+							{/each}
+						{/if}
+					</div>
 				{/if}
 			</Button>
 		</DropdownMenuTrigger>
 
-		<DropdownMenuContent align="start" class="w-56">
-			<!-- Status Filters -->
-			<DropdownMenuLabel>Estado</DropdownMenuLabel>
-			{#each statusOptions as option}
-				<DropdownMenuItem onclick={() => toggleFilter('status', option.id)}>
-					<div class="flex items-center justify-between w-full">
-						<span>{option.name}</span>
-						{#if isFilterActive('status', option.id)}
-							<Badge variant="default" class="h-5 w-5 p-0 flex items-center justify-center">
-								✓
-							</Badge>
-						{/if}
-					</div>
-				</DropdownMenuItem>
-			{/each}
+		<DropdownMenuContent align="start" class="w-[280px] p-0">
+			<div class="p-2">
+				<div class="relative">
+					<Search
+						class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground"
+					/>
+					<Input
+						placeholder="Buscar etapa..."
+						class="pl-8 h-9"
+						bind:value={searchQuery}
+					/>
+				</div>
+			</div>
 
 			<DropdownMenuSeparator />
 
-			<!-- Priority Filters -->
-			<DropdownMenuLabel>Prioridad</DropdownMenuLabel>
-			{#each priorityOptions as option}
-				<DropdownMenuItem onclick={() => toggleFilter('priority', option.id)}>
-					<div class="flex items-center justify-between w-full">
-						<span>{option.name}</span>
-						{#if isFilterActive('priority', option.id)}
-							<Badge variant="default" class="h-5 w-5 p-0 flex items-center justify-center">
-								✓
-							</Badge>
-						{/if}
-					</div>
-				</DropdownMenuItem>
-			{/each}
-
-			{#if availableStages.length > 0}
-				<DropdownMenuSeparator />
-
-				<!-- Stage Filters -->
-				<DropdownMenuLabel>Etapa</DropdownMenuLabel>
-				{#each availableStages as stage}
-					<DropdownMenuItem onclick={() => toggleFilter('stage', stage.id)}>
-						<div class="flex items-center justify-between w-full">
-							<div class="flex items-center gap-2">
-								<div class="w-3 h-3 rounded-full" style="background-color: {stage.color}"></div>
-								<span>{stage.name}</span>
-							</div>
-							{#if isFilterActive('stage', stage.id)}
-								<Badge variant="default" class="h-5 w-5 p-0 flex items-center justify-center">
-									✓
-								</Badge>
-							{/if}
+			<ScrollArea class="max-h-[300px] overflow-y-auto">
+				<div class="p-1">
+					{#if filteredStages.length > 0}
+						{#each filteredStages as stage}
+							<DropdownMenuItem
+								closeOnSelect={false}
+								onclick={() => toggleFilter("stage", stage.id)}
+								class="flex items-center justify-between px-2 py-1.5 cursor-pointer"
+							>
+								<div
+									class="flex items-center gap-2 overflow-hidden"
+								>
+									<div
+										class="w-3 h-3 rounded-full flex-shrink-0"
+										style="background-color: {stage.color}"
+									></div>
+									<span class="truncate">{stage.name}</span>
+								</div>
+								<div
+									class="flex items-center justify-center w-4 h-4 ml-2 flex-shrink-0"
+								>
+									{#if isFilterActive("stage", stage.id)}
+										<CheckSquare
+											class="h-4 w-4 opacity-100"
+										/>
+									{:else}
+										<Square class="h-4 w-4 opacity-50" />
+									{/if}
+								</div>
+							</DropdownMenuItem>
+						{/each}
+					{:else}
+						<div
+							class="py-6 text-center text-sm text-muted-foreground"
+						>
+							No se encontraron etapas
 						</div>
-					</DropdownMenuItem>
-				{/each}
+					{/if}
+				</div>
+			</ScrollArea>
+
+			{#if activeFilterCount > 0}
+				<DropdownMenuSeparator />
+				<div class="p-2">
+					<Button
+						variant="ghost"
+						class="w-full justify-center h-8 text-xs"
+						onclick={handleClearFilters}
+					>
+						Limpiar filtros
+					</Button>
+				</div>
 			{/if}
-
-			<DropdownMenuSeparator />
-
-			<!-- Channel Filters -->
-			<DropdownMenuLabel>Canal</DropdownMenuLabel>
-			{#each availableChannels as channel}
-				<DropdownMenuItem onclick={() => toggleFilter('channel', channel.id)}>
-					<div class="flex items-center justify-between w-full">
-						<span>{channel.name}</span>
-						{#if isFilterActive('channel', channel.id)}
-							<Badge variant="default" class="h-5 w-5 p-0 flex items-center justify-center">
-								✓
-							</Badge>
-						{/if}
-					</div>
-				</DropdownMenuItem>
-			{/each}
 		</DropdownMenuContent>
 	</DropdownMenu>
-
-	<!-- Clear Filters Button -->
-	{#if activeFilterCount > 0}
-		<Button variant="ghost" size="sm" onclick={handleClearFilters}>
-			<X class="h-4 w-4 mr-1" />
-			Limpiar
-		</Button>
-	{/if}
-
-	<!-- Active Filter Badges -->
-	{#if activeFilterCount > 0}
-		<div class="flex gap-1 flex-wrap">
-			{#each Object.entries(activeFilters) as [category, values]}
-				{#if values && values.length > 0}
-					{#each values as value}
-						<Badge variant="secondary" class="gap-1">
-							{value}
-							<button
-								class="ml-1 hover:text-destructive"
-								onclick={() => toggleFilter(category as keyof FilterOptions, value)}
-							>
-								<X class="h-3 w-3" />
-							</button>
-						</Badge>
-					{/each}
-				{/if}
-			{/each}
-		</div>
-	{/if}
 </div>

@@ -132,12 +132,12 @@ export interface LeadDetail {
 
 export interface InboxFilters {
   search?: string;
-  status?: ConversationStatus;
-  priority?: Priority;
-  agent?: string;
-  stage?: string;
+  status?: ConversationStatus | ConversationStatus[];
+  priority?: Priority | Priority[];
+  agent?: string | string[];
+  stage?: string | string[];
   tags?: string[];
-  channel?: Channel;
+  channel?: Channel | Channel[];
 }
 
 export interface InboxParams extends InboxFilters {

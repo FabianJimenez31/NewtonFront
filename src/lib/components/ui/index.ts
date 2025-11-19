@@ -32,3 +32,9 @@ export { default as DropdownMenuContent } from "./dropdown-menu-content.svelte";
 export { default as DropdownMenuItem } from "./dropdown-menu-item.svelte";
 export { default as DropdownMenuSeparator } from "./dropdown-menu-separator.svelte";
 export { default as DropdownMenuLabel } from "./dropdown-menu-label.svelte";
+
+// Card Components
+export { default as Card } from "./card.svelte";
+export { default as CardHeader } from "./card-header.svelte";
+export { default as CardTitle } from "./card-title.svelte";
+export { default as CardContent } from "./card-content.svelte";

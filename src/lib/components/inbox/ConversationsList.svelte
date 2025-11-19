@@ -16,6 +16,7 @@
 		priority?: "high" | "medium" | "low";
 		channel?: string;
 		stage?: string;
+		stageColor?: string;
 	}
 
 	interface PaginationSummary {
@@ -91,12 +92,8 @@
 
 <div class={cn("flex flex-col h-full min-h-0 bg-background", className)}>
 	<ConversationsListHeader
-		{activeTab}
 		{searchQuery}
-		{totalUnread}
-		{counts}
 		{filters}
-		onTabChange={handleTabChange}
 		onSearchChange={handleSearchChange}
 	/>
 

@@ -17,19 +17,41 @@ import { agentActions } from "$lib/stores/inbox.agents.store";
 import { loadInboxWithPagination } from "$lib/stores/inbox.init";
 import { toggleAI, pauseAI, resumeAI } from "$lib/services/ai.service";
 import { paginationSummary } from "$lib/stores/inbox.pagination.store";
+import {
+    tabsActions,
+    activeConversations,
+} from "$lib/stores/conversations-tabs.store";
 
 export function createConversationHandlers(getToken: () => string) {
-    async function selectConversation(id: string) {
+    async function selectConversation(id: string | null) {
+        console.log("[selectConversation] Called with id:", id);
         const token = getToken();
-        if (!token) return;
+        if (!token) {
+            console.log("[selectConversation] No token, returning");
+            return;
+        }
 
-        // Find the conversation to get its lead_id
+        if (!id) {
+            console.log("[selectConversation] Clearing selection");
+            inboxActions.selectConversation(null);
+            return;
+        }
+
+        // Find the conversation to get its details
         const conversations = get(filteredConversations);
         const conversation = conversations.find((c) => c.id === id);
         if (!conversation) {
             console.error("[INBOX] Conversation not found:", id);
             return;
         }
+
+        // Open conversation in tabs system
+        tabsActions.openConversation({
+            id: conversation.id,
+            leadId: conversation.lead_id,
+            contactName: conversation.contact_name,
+            contactAvatar: conversation.contact_avatar,
+        });
 
         // Select conversation by ID for UI highlighting
         inboxActions.selectConversation(id);
@@ -39,6 +61,30 @@ export function createConversationHandlers(getToken: () => string) {
 
         // Mark as read using conversation id
         inboxActions.markAsRead(id);
+    }
+
+    async function minimizeConversation() {
+        const conversation = get(currentConversation);
+        if (!conversation) return;
+
+        console.log("[minimizeConversation] Minimizing:", conversation.id);
+        tabsActions.minimizeConversation(conversation.id);
+        messagingActions.clearConversation(); // Clear the messaging console UI
+        // Don't clear inbox selection - keep list visible for selecting another conversation
+    }
+
+    async function closeConversationTab(id: string) {
+        console.log("[closeConversationTab] Closing:", id);
+        const currentConv = get(currentConversation);
+
+        // Close in tabs system
+        tabsActions.closeConversation(id);
+
+        // If it's the current conversation, clear messaging state
+        if (currentConv?.id === id) {
+            messagingActions.clearConversation();
+            inboxActions.selectConversation(null);
+        }
     }
 
     async function changeTab(tab: "all" | "mine" | "unassigned") {
@@ -159,6 +205,8 @@ export function createConversationHandlers(getToken: () => string) {
 
     return {
         selectConversation,
+        minimizeConversation,
+        closeConversationTab,
         changeTab,
         goToPage,
         sendMessage,
