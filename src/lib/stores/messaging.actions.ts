@@ -30,7 +30,11 @@ let currentToken: string | null = null;
  * Load conversation with messages
  * Uses data from inbox store if available (messages are already there)
  */
-export async function loadConversation(token: string, id: string) {
+export async function loadConversation(
+    token: string,
+    id: string,
+    knownContactInfo?: { name?: string; avatar?: string },
+) {
     console.log("[MESSAGING] loadConversation called for ID:", id);
     isLoadingMessages.set(true);
     error.set(null);
@@ -49,12 +53,57 @@ export async function loadConversation(token: string, id: string) {
 
         // Merge lead info if available
         if (lead) {
+            conversation.lead = lead;
+
+            // Sync contact details from lead if available
+            if (
+                lead.name &&
+                (!conversation.contact_name ||
+                    conversation.contact_name === "Sin nombre")
+            ) {
+                conversation.contact_name = lead.name;
+            }
+            if (lead.email) conversation.contact_email = lead.email;
+            if (lead.phone) conversation.contact_phone = lead.phone;
+
+            // Sync metadata
+            if (lead.country) {
+                conversation.metadata = {
+                    ...conversation.metadata,
+                    country: lead.country,
+                };
+            }
+            if (lead.language) {
+                conversation.metadata = {
+                    ...conversation.metadata,
+                    language: lead.language,
+                };
+            }
+
             conversation.assigned_agent_id =
                 lead.assigned_agent_id || (lead.assigned_agent as any)?.id;
             // If lead has the full agent object, use it
             if (lead.assigned_agent) {
                 conversation.assigned_agent = lead.assigned_agent;
             }
+        }
+
+        // If we still have "Sin nombre" but we have known info from the list, use that
+        if (
+            knownContactInfo?.name &&
+            (!conversation.contact_name ||
+                conversation.contact_name === "Sin nombre")
+        ) {
+            console.log(
+                "[MESSAGING] Using known contact name from list:",
+                knownContactInfo.name,
+            );
+            conversation.contact_name = knownContactInfo.name;
+        }
+
+        // Also sync avatar if missing
+        if (!conversation.contact_avatar && knownContactInfo?.avatar) {
+            conversation.contact_avatar = knownContactInfo.avatar;
         }
 
         // Enrich with agent info if missing but ID is present

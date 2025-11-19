@@ -138,6 +138,8 @@ export interface InboxFilters {
   stage?: string | string[];
   tags?: string[];
   channel?: Channel | Channel[];
+  start_date?: string; // Format: YYYY-MM-DD
+  end_date?: string; // Format: YYYY-MM-DD
 }
 
 export interface InboxParams extends InboxFilters {
@@ -170,6 +172,7 @@ export interface InboxResponse {
     attended: number;
     all: number;
   };
+  stage_counts?: Record<string, number>; // Dynamic stage counts from backend
 }
 
 export interface SendMessageResponse {

@@ -108,14 +108,14 @@
 						{activeFilterCount}
 					</Badge>
 					<div class="hidden space-x-1 lg:flex ml-2">
-						{#if activeFilters.stage?.length > 2}
+						{#if activeFilters.stage && activeFilters.stage.length > 2}
 							<Badge
 								variant="secondary"
 								class="rounded-sm px-1 font-normal"
 							>
 								{activeFilters.stage.length} seleccionados
 							</Badge>
-						{:else if activeFilters.stage}
+						{:else if activeFilters.stage && activeFilters.stage.length > 0}
 							{#each activeFilters.stage as stageId}
 								{@const stage = availableStages.find(
 									(s) => s.id === stageId,

@@ -9,7 +9,13 @@ import {
   getPriorityInbox,
 } from "$lib/services/conversations.inbox.service";
 import type { InboxTab, InboxFilters } from "$lib/types/inbox.types";
-import { conversations, filters, activeTab, error } from "./inbox.store";
+import {
+  conversations,
+  filters,
+  activeTab,
+  error,
+  backendStageCounts,
+} from "./inbox.store";
 import {
   applyPaginationMeta,
   currentPage,
@@ -51,6 +57,8 @@ export const paginationActions = {
         limit,
       };
 
+      console.log("[PAGINATION] API params:", params);
+
       const response = priority
         ? await getPriorityInbox(token, params)
         : await getInbox(token, params);
@@ -61,6 +69,15 @@ export const paginationActions = {
 
       conversations.set(response.conversations);
 
+      // Update backend stage counts if available
+      if (response.stage_counts) {
+        console.log(
+          "[PAGINATION] Stage counts from backend:",
+          response.stage_counts,
+        );
+        backendStageCounts.set(response.stage_counts);
+      }
+
       applyPaginationMeta({
         page: response.page ?? requestedPage,
         pages: response.pages,
@@ -69,9 +86,7 @@ export const paginationActions = {
       });
     } catch (err) {
       error.set(
-        err instanceof Error
-          ? err.message
-          : "Error loading conversations page",
+        err instanceof Error ? err.message : "Error loading conversations page",
       );
       console.error("[PAGINATION] Failed to load page:", err);
     } finally {

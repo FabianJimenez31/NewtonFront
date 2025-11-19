@@ -30,7 +30,7 @@ export async function getInbox(
   try {
     const url = buildURL(`${CONVERSATIONS_BASE}/inbox`, params);
     const response = await authenticatedFetchJSON<any>(url, token, {
-      timeout: 10000,
+      timeout: 30000,
     });
 
     // Handle response with metadata (new format)
@@ -40,20 +40,12 @@ export async function getInbox(
       );
 
       const total =
-        response.total ??
-        response.meta?.total ??
-        conversations.length;
-      const page =
-        response.page ??
-        response.meta?.page ??
-        params.page ??
-        1;
+        response.total ?? response.meta?.total ?? conversations.length;
+      const page = response.page ?? response.meta?.page ?? params.page ?? 1;
       const pages =
         response.pages ??
         response.meta?.pages ??
-        (params.limit
-          ? Math.max(1, Math.ceil(total / params.limit))
-          : 1);
+        (params.limit ? Math.max(1, Math.ceil(total / params.limit)) : 1);
       const hasMoreFlag =
         response.has_more ??
         response.hasMore ??
@@ -62,6 +54,7 @@ export async function getInbox(
         page < pages;
       const statusCounts =
         response.status_counts ?? response.meta?.status_counts;
+      const stageCounts = response.stage_counts ?? response.meta?.stage_counts;
 
       console.log(
         `[INBOX] Loaded ${conversations.length} conversations (page ${page}/${pages}, has_more: ${hasMoreFlag})`,
@@ -74,6 +67,7 @@ export async function getInbox(
         pages,
         has_more: Boolean(hasMoreFlag),
         status_counts: statusCounts,
+        stage_counts: stageCounts,
       };
     }
 
@@ -88,8 +82,7 @@ export async function getInbox(
     const conversations = rawConversations.map(mapApiConversationDetail);
     const total = conversations.length;
     const limit = params.limit ?? total;
-    const pages =
-      limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
+    const pages = limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
     const hasMoreFlag = limit > 0 && total === limit;
 
     console.log(
@@ -121,7 +114,7 @@ export async function getPriorityInbox(
   try {
     const url = buildURL(`${CONVERSATIONS_BASE}/priority-inbox`, params);
     const response = await authenticatedFetchJSON<any>(url, token, {
-      timeout: 10000,
+      timeout: 30000,
     });
 
     // Handle response with metadata (new format)
@@ -131,20 +124,12 @@ export async function getPriorityInbox(
       );
 
       const total =
-        response.total ??
-        response.meta?.total ??
-        conversations.length;
-      const page =
-        response.page ??
-        response.meta?.page ??
-        params.page ??
-        1;
+        response.total ?? response.meta?.total ?? conversations.length;
+      const page = response.page ?? response.meta?.page ?? params.page ?? 1;
       const pages =
         response.pages ??
         response.meta?.pages ??
-        (params.limit
-          ? Math.max(1, Math.ceil(total / params.limit))
-          : 1);
+        (params.limit ? Math.max(1, Math.ceil(total / params.limit)) : 1);
       const hasMoreFlag =
         response.has_more ??
         response.hasMore ??
@@ -153,6 +138,7 @@ export async function getPriorityInbox(
         page < pages;
       const statusCounts =
         response.status_counts ?? response.meta?.status_counts;
+      const stageCounts = response.stage_counts ?? response.meta?.stage_counts;
 
       console.log(
         `[PRIORITY-INBOX] Loaded ${conversations.length} conversations (page ${page}/${pages}, has_more: ${hasMoreFlag})`,
@@ -165,6 +151,7 @@ export async function getPriorityInbox(
         pages,
         has_more: Boolean(hasMoreFlag),
         status_counts: statusCounts,
+        stage_counts: stageCounts,
       };
     }
 
@@ -179,8 +166,7 @@ export async function getPriorityInbox(
     const conversations = rawConversations.map(mapApiConversationDetail);
     const total = conversations.length;
     const limit = params.limit ?? total;
-    const pages =
-      limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
+    const pages = limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
     const hasMoreFlag = limit > 0 && total === limit;
 
     console.log(

@@ -7,6 +7,7 @@ import { get } from "svelte/store";
 import {
     inboxActions,
     filteredConversations,
+    conversations,
 } from "$lib/stores/inbox.store";
 import {
     messagingActions,
@@ -38,8 +39,30 @@ export function createConversationHandlers(getToken: () => string) {
         }
 
         // Find the conversation to get its details
-        const conversations = get(filteredConversations);
-        const conversation = conversations.find((c) => c.id === id);
+        // 1. Try filtered list (current view)
+        let conversation = get(filteredConversations).find((c) => c.id === id);
+
+        // 2. Try unfiltered list (in case it's hidden by filters)
+        if (!conversation) {
+            conversation = get(conversations).find((c) => c.id === id);
+        }
+
+        // 3. Try active tabs (in case it's minimized/closed but in tabs history)
+        if (!conversation) {
+            const activeTab = get(activeConversations).find(c => c.id === id);
+            if (activeTab) {
+                // Reconstruct minimal conversation object from tab data
+                conversation = {
+                    id: activeTab.id,
+                    lead_id: activeTab.leadId,
+                    contact_name: activeTab.contactName,
+                    contact_avatar: activeTab.contactAvatar,
+                    // Add other required fields with defaults or placeholders if necessary
+                    // For loadConversation, we mainly need lead_id
+                } as any;
+            }
+        }
+
         if (!conversation) {
             console.error("[INBOX] Conversation not found:", id);
             return;
@@ -57,7 +80,10 @@ export function createConversationHandlers(getToken: () => string) {
         inboxActions.selectConversation(id);
 
         // Load conversation details using lead_id
-        await messagingActions.loadConversation(token, conversation.lead_id);
+        await messagingActions.loadConversation(token, conversation.lead_id, {
+            name: conversation.contact_name,
+            avatar: conversation.contact_avatar,
+        });
 
         // Mark as read using conversation id
         inboxActions.markAsRead(id);
