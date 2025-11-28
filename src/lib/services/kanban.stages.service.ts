@@ -1,7 +1,7 @@
 /**
  * Kanban Stages Service
  * Handles stage CRUD operations
- * API Base: https://crm.inewton.ai/api/v1/kanban/stages
+ * API Base: /api/v1/kanban/stages (proxied to https://crm.inewton.ai/api/v1/kanban/stages)
  */
 
 import type {
@@ -11,7 +11,7 @@ import type {
   ApiError,
 } from "$lib/types/kanban";
 
-const API_BASE = "https://crm.inewton.ai/api/v1/kanban";
+const API_BASE = "/api/v1/kanban";
 
 /**
  * Handles API errors and returns formatted error message
@@ -57,7 +57,7 @@ async function authenticatedFetch(
  */
 export async function getStages(token: string): Promise<Stage[]> {
   try {
-    return await authenticatedFetch(`${API_BASE}/stages/`, token);
+    return await authenticatedFetch(`${API_BASE}/stages`, token);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -87,7 +87,7 @@ export async function createStage(
   stage: StageCreate,
 ): Promise<Stage> {
   try {
-    return await authenticatedFetch(`${API_BASE}/stages/`, token, {
+    return await authenticatedFetch(`${API_BASE}/stages`, token, {
       method: "POST",
       body: JSON.stringify(stage),
     });

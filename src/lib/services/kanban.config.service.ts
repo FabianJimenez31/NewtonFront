@@ -1,12 +1,12 @@
 /**
  * Kanban Config Service
  * Handles kanban configuration management
- * API Base: https://crm.inewton.ai/api/v1/kanban
+ * API Base: /api/v1/kanban (proxied to https://crm.inewton.ai/api/v1/kanban)
  */
 
 import type { KanbanConfig, ApiError } from "$lib/types/kanban";
 
-const API_BASE = "https://crm.inewton.ai/api/v1/kanban";
+const API_BASE = "/api/v1/kanban";
 
 /**
  * Handles API errors and returns formatted error message
@@ -52,7 +52,7 @@ async function authenticatedFetch(
  */
 export async function getKanbanConfig(token: string): Promise<KanbanConfig> {
   try {
-    return await authenticatedFetch(`${API_BASE}/`, token);
+    return await authenticatedFetch(`${API_BASE}`, token);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -67,7 +67,7 @@ export async function createKanbanConfig(
   config: Partial<KanbanConfig>,
 ): Promise<KanbanConfig> {
   try {
-    return await authenticatedFetch(`${API_BASE}/`, token, {
+    return await authenticatedFetch(`${API_BASE}`, token, {
       method: "POST",
       body: JSON.stringify(config),
     });

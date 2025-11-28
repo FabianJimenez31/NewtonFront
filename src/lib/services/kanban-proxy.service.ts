@@ -38,15 +38,23 @@ async function authenticatedFetch(
 ) {
   console.log("[KANBAN PROXY] Calling:", url);
   console.log("[KANBAN PROXY] Method:", options.method || "GET");
+  console.log("[KANBAN PROXY] Token preview:", token.substring(0, 30) + "...");
+
+  const headers = {
+    ...options.headers,
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  console.log("[KANBAN PROXY] Request headers:", {
+    ...headers,
+    Authorization: `Bearer ${token.substring(0, 20)}...`,
+  });
 
   try {
     const response = await fetch(url, {
       ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     console.log("[KANBAN PROXY] Response status:", response.status);
@@ -101,7 +109,7 @@ function normalizeBoardResponse(
 export async function getKanbanConfig(token: string): Promise<KanbanConfig> {
   try {
     console.log("[KANBAN SERVICE] Getting config via proxy");
-    return await authenticatedFetch("/api/kanban/config", token);
+    return await authenticatedFetch("/api/v1/kanban/", token);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -109,12 +117,12 @@ export async function getKanbanConfig(token: string): Promise<KanbanConfig> {
 
 /**
  * Get all stages for current tenant
- * Uses local proxy: GET /api/kanban/stages
+ * Uses local proxy: GET /api/v1/kanban/stages
  */
 export async function getStages(token: string): Promise<Stage[]> {
   try {
     console.log("[KANBAN SERVICE] Getting stages via proxy");
-    return await authenticatedFetch("/api/kanban/stages", token);
+    return await authenticatedFetch("/api/v1/kanban/stages", token);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -134,7 +142,7 @@ export async function getBoard(
     const params = filters
       ? new URLSearchParams(filters as any).toString()
       : "";
-    const url = params ? `/api/kanban/board?${params}` : "/api/kanban/board";
+    const url = params ? `/api/v1/kanban/board?${params}` : "/api/v1/kanban/board";
     console.log("[KANBAN SERVICE] Board URL:", url);
     const rawBoardData = (await authenticatedFetch(
       url,
@@ -170,7 +178,7 @@ export async function createStage(
   stage: StageCreate,
 ): Promise<Stage> {
   try {
-    return await authenticatedFetch("/api/kanban/stages", token, {
+    return await authenticatedFetch("/api/v1/kanban/stages", token, {
       method: "POST",
       body: JSON.stringify(stage),
     });
@@ -181,7 +189,7 @@ export async function createStage(
 
 /**
  * Update stage
- * Uses local proxy: PUT /api/kanban/stages/{stage_id}
+ * Uses local proxy: PUT /api/v1/kanban/stages/{stage_id}
  */
 export async function updateStage(
   token: string,
@@ -189,7 +197,7 @@ export async function updateStage(
   stage: StageUpdate,
 ): Promise<Stage> {
   try {
-    return await authenticatedFetch(`/api/kanban/stages/${stageId}`, token, {
+    return await authenticatedFetch(`/api/v1/kanban/stages/${stageId}`, token, {
       method: "PUT",
       body: JSON.stringify(stage),
     });
@@ -200,14 +208,14 @@ export async function updateStage(
 
 /**
  * Delete stage (admin only)
- * Uses local proxy: DELETE /api/kanban/stages/{stage_id}
+ * Uses local proxy: DELETE /api/v1/kanban/stages/{stage_id}
  */
 export async function deleteStage(
   token: string,
   stageId: string,
 ): Promise<void> {
   try {
-    await authenticatedFetch(`/api/kanban/stages/${stageId}`, token, {
+    await authenticatedFetch(`/api/v1/kanban/stages/${stageId}`, token, {
       method: "DELETE",
     });
   } catch (error) {
@@ -217,14 +225,14 @@ export async function deleteStage(
 
 /**
  * Create default pipeline configuration
- * Uses local proxy: POST /api/kanban/config/default
+ * Uses local proxy: POST /api/v1/kanban/config/default
  */
 export async function createDefaultConfig(
   token: string,
 ): Promise<KanbanConfig> {
   try {
     console.log("[KANBAN SERVICE] Creating default config via proxy");
-    return await authenticatedFetch("/api/kanban/config/default", token, {
+    return await authenticatedFetch("/api/v1/kanban/config/default", token, {
       method: "POST",
     });
   } catch (error) {

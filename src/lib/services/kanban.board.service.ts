@@ -1,7 +1,7 @@
 /**
  * Kanban Board Service
  * Handles board operations and lead movements
- * API Base: https://crm.inewton.ai/api/v1/kanban
+ * API Base: /api/v1/kanban (proxied to https://crm.inewton.ai/api/v1/kanban)
  */
 
 import type {
@@ -13,8 +13,8 @@ import type {
   ApiError,
 } from "$lib/types/kanban";
 
-const API_BASE = "https://crm.inewton.ai/api/v1/kanban";
-const LEADS_API_BASE = "https://crm.inewton.ai/api/v1/leads";
+const API_BASE = "/api/v1/kanban";
+const LEADS_API_BASE = "/api/v1/leads";
 
 /**
  * Handles API errors and returns formatted error message

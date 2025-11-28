@@ -29,14 +29,14 @@ const API_BASE = `${API_BASE_URL}/auth`;
 
 /**
  * Login with email and password (Traditional Single-Tenant)
- * Uses local proxy to avoid CORS: POST /api/auth/login
+ * POST /api/v1/auth/login
  */
 export async function login(credentials: LoginRequest): Promise<LoginResponse> {
   try {
     console.log("[AUTH SERVICE] Attempting traditional login");
-    console.log("[AUTH SERVICE] Using proxy: /api/auth/login");
+    console.log("[AUTH SERVICE] Using endpoint:", `${API_BASE}/login`);
 
-    const response = await fetch("/api/auth/login", {
+    const response = await fetch(`${API_BASE}/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -195,13 +195,13 @@ export async function getTenants(token: string): Promise<unknown[]> {
 
 /**
  * Multi-Tenant Login (Step 1) - Login without tenant_id
- * Uses local proxy to avoid CORS
+ * POST /api/v1/auth/login-multi-tenant
  */
 export async function loginMultiTenant(
   credentials: LoginMultiTenantRequest,
 ): Promise<LoginMultiTenantResponse> {
   try {
-    const response = await fetch(`/api/auth/login-multi-tenant`, {
+    const response = await fetch(`${API_BASE}/login-multi-tenant`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -222,14 +222,14 @@ export async function loginMultiTenant(
 
 /**
  * Select Tenant (Step 2) - Complete login by selecting a tenant
- * Uses local proxy to avoid CORS
+ * POST /api/v1/auth/select-tenant
  */
 export async function selectTenant(
   request: SelectTenantRequest,
   tempToken: string,
 ): Promise<LoginResponse> {
   try {
-    return await authenticatedFetchJSON(`/api/auth/select-tenant`, tempToken, {
+    return await authenticatedFetchJSON(`${API_BASE}/select-tenant`, tempToken, {
       method: "POST",
       body: JSON.stringify(request),
     });
@@ -240,14 +240,14 @@ export async function selectTenant(
 
 /**
  * Switch Tenant - Change tenant without re-authentication
- * Uses local proxy to avoid CORS
+ * POST /api/v1/auth/switch-tenant
  */
 export async function switchTenant(
   request: SwitchTenantRequest,
   token: string,
 ): Promise<LoginResponse> {
   try {
-    return await authenticatedFetchJSON(`/api/auth/switch-tenant`, token, {
+    return await authenticatedFetchJSON(`${API_BASE}/switch-tenant`, token, {
       method: "POST",
       body: JSON.stringify(request),
     });

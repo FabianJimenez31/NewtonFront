@@ -5,17 +5,24 @@
 
 import type { ApiError } from "$lib/types/inbox.types";
 
-export const API_BASE_URL = "https://crm.inewton.ai/api/v1";
+// Use relative URL to leverage Vite proxy configuration
+// This prevents CORS errors and ensures all requests go through the dev server
+export const API_BASE_URL = "/api/v1";
 
 /**
  * Handles API errors and returns formatted error message
  */
 export function handleApiError(error: unknown): string {
+  console.error("[API Error Detail]:", error);
   if (error instanceof Error) {
     return error.message;
   }
   if (typeof error === "object" && error !== null && "detail" in error) {
-    return (error as ApiError).detail;
+    const detail = (error as ApiError).detail;
+    if (typeof detail === "object") {
+      return JSON.stringify(detail);
+    }
+    return String(detail);
   }
   return "Error desconocido. Por favor intenta de nuevo.";
 }

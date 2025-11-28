@@ -10,5 +10,14 @@ export default defineConfig({
     host: "0.0.0.0", // Escuchar en todas las interfaces
     port: 5173,
     strictPort: true,
+    proxy: {
+      "/api": {
+        target: "https://crm.inewton.ai",
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        rewrite: (path) => path,
+      },
+    },
   },
 });
