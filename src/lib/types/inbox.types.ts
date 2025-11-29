@@ -87,6 +87,7 @@ export interface Message {
   type: MessageType;
   metadata?: MessageMetadata;
   internal?: boolean; // Internal notes (agent to agent)
+  status?: string; // Delivery status from WebSocket
 }
 
 export interface MessageMetadata {

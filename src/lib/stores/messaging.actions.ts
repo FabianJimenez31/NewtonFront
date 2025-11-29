@@ -7,12 +7,14 @@ import { get } from "svelte/store";
 import {
     getConversation,
     sendMessage,
+    sendMessageToLead,
     sendAudio,
     sendFile,
     pollMessages,
 } from "$lib/services/conversations.service";
 import { getLead } from "$lib/services/leads.service";
 import { agents } from "./inbox.agents.store";
+import { authStore } from "./auth.store";
 import {
     currentConversation,
     messages,
@@ -143,14 +145,37 @@ export async function sendTextMessage(token: string, content: string) {
         return;
     }
 
+    if (!conversation.lead_id) {
+        console.error("No lead_id in conversation");
+        error.set("Cannot send message: missing lead information");
+        return;
+    }
+
     isSending.set(true);
     error.set(null);
 
     try {
-        const newMessage = await sendMessage(token, conversation.id, content);
+        const response = await sendMessageToLead(token, conversation.lead_id, content);
+        
+        // Handle potential response wrapper (e.g. { message: {...}, conversation: {...} })
+        const messageData = (response as any).message || response;
 
-        // Optimistic update - add message to local state immediately
-        messages.update((msgs) => [...msgs, newMessage]);
+        const currentUser = get(authStore).user;
+
+        // Optimistic update with user info and fallback values
+        const optimisticMessage = {
+            ...messageData,
+            content: messageData.content || content, // Fallback to sent content
+            timestamp: messageData.timestamp || new Date().toISOString(), // Fallback to current time
+            sender_id: currentUser?.id,
+            sender_name: currentUser?.name || "Agente",
+            sender: "agent", // Force sender type
+            status: "sent"
+        };
+
+        console.log("[MESSAGING] Optimistic message:", optimisticMessage);
+
+        messages.update((msgs) => [...msgs, optimisticMessage]);
 
         // Update last message in conversation
         currentConversation.update((conv) =>
@@ -158,7 +183,7 @@ export async function sendTextMessage(token: string, content: string) {
                 ? {
                     ...conv,
                     last_message: content,
-                    last_message_time: newMessage.timestamp,
+                    last_message_time: optimisticMessage.timestamp,
                     last_message_sender: "agent",
                 }
                 : null,

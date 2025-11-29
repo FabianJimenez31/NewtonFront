@@ -5,243 +5,340 @@
 
 import { get } from "svelte/store";
 import {
-    inboxActions,
-    filteredConversations,
-    conversations,
+  inboxActions,
+  filteredConversations,
+  conversations,
 } from "$lib/stores/inbox.store";
 import {
-    messagingActions,
-    currentConversation,
+  messagingActions,
+  currentConversation,
 } from "$lib/stores/messaging.store";
+import { messages } from "$lib/stores/messaging.state";
 import { paginationActions } from "$lib/stores/inbox.pagination.actions";
 import { agentActions } from "$lib/stores/inbox.agents.store";
 import { loadInboxWithPagination } from "$lib/stores/inbox.init";
 import { toggleAI, pauseAI, resumeAI } from "$lib/services/ai.service";
 import { paginationSummary } from "$lib/stores/inbox.pagination.store";
 import {
-    tabsActions,
-    activeConversations,
+  tabsActions,
+  activeConversations,
 } from "$lib/stores/conversations-tabs.store";
+import { moveLead } from "$lib/services/leads.service";
+import {
+  webSocketService,
+  type WebSocketMessage,
+} from "$lib/services/websocket.service";
+import type { Message, MessageSender } from "$lib/types/inbox.types";
+import { sendTextMessageViaWS } from "$lib/stores/messaging.websocket";
 
-export function createConversationHandlers(getToken: () => string) {
-    async function selectConversation(id: string | null) {
-        console.log("[selectConversation] Called with id:", id);
-        const token = getToken();
-        if (!token) {
-            console.log("[selectConversation] No token, returning");
-            return;
+/**
+ * Setup WebSocket callbacks for handling incoming messages
+ */
+function setupWebSocketCallbacks() {
+  webSocketService.setCallbacks({
+    onNewMessage: (data: WebSocketMessage) => {
+      const message = data.message;
+      const leadId = data.lead_id;
+
+      if (!message) return;
+
+      // Map sender type
+      let mappedSender: MessageSender = "contact";
+      if (message.sender === "lead") mappedSender = "contact";
+      else if (message.sender === "agent") mappedSender = "agent";
+      else if (message.sender === "ai") mappedSender = "ai";
+      else if (message.sender === "system") mappedSender = "system";
+
+      // Check if this is for the currently active conversation
+      const activeConversation = get(currentConversation);
+      const currentLeadId = webSocketService.getCurrentLeadId();
+
+      const isCurrentConversation =
+        activeConversation &&
+        (activeConversation.lead_id === leadId ||
+          activeConversation.lead_id === currentLeadId ||
+          activeConversation.id === leadId);
+
+      if (isCurrentConversation) {
+        // Check for duplicates
+        const currentMessages = get(messages);
+        const messageId = message.id as string | undefined;
+        const isDuplicate =
+          messageId && currentMessages.some((m) => m.id === messageId);
+
+        if (!isDuplicate) {
+          const enrichedMessage: Message = {
+            ...(message as unknown as Message),
+            sender: mappedSender,
+            sender_name:
+              (message.sender_name as string) ||
+              (mappedSender === "contact"
+                ? (message.contact_name as string)
+                : "Agente"),
+          };
+          messagingActions.addMessage(enrichedMessage);
+          console.log("[WebSocket] Message added to conversation");
         }
+      }
 
-        if (!id) {
-            console.log("[selectConversation] Clearing selection");
-            inboxActions.selectConversation(null);
-            return;
-        }
-
-        // Find the conversation to get its details
-        // 1. Try filtered list (current view)
-        let conversation = get(filteredConversations).find((c) => c.id === id);
-
-        // 2. Try unfiltered list (in case it's hidden by filters)
-        if (!conversation) {
-            conversation = get(conversations).find((c) => c.id === id);
-        }
-
-        // 3. Try active tabs (in case it's minimized/closed but in tabs history)
-        if (!conversation) {
-            const activeTab = get(activeConversations).find(c => c.id === id);
-            if (activeTab) {
-                // Reconstruct minimal conversation object from tab data
-                conversation = {
-                    id: activeTab.id,
-                    lead_id: activeTab.leadId,
-                    contact_name: activeTab.contactName,
-                    contact_avatar: activeTab.contactAvatar,
-                    // Add other required fields with defaults or placeholders if necessary
-                    // For loadConversation, we mainly need lead_id
-                } as any;
-            }
-        }
-
-        if (!conversation) {
-            console.error("[INBOX] Conversation not found:", id);
-            return;
-        }
-
-        // Open conversation in tabs system
-        tabsActions.openConversation({
-            id: conversation.id,
-            leadId: conversation.lead_id,
-            contactName: conversation.contact_name,
-            contactAvatar: conversation.contact_avatar,
+      // Update inbox list
+      const convId = activeConversation?.id || (leadId as string) || "";
+      if (convId) {
+        inboxActions.updateConversation(convId, {
+          last_message: message.content as string,
+          last_message_time: message.timestamp as string,
+          last_message_sender: mappedSender,
+          unread_count: isCurrentConversation ? 0 : undefined,
         });
+      }
+    },
 
-        // Select conversation by ID for UI highlighting
-        inboxActions.selectConversation(id);
+    onMessageStatus: (messageId: string, status: string) => {
+      messagingActions.updateMessage(messageId, { status });
+    },
 
-        // Load conversation details using lead_id
-        await messagingActions.loadConversation(token, conversation.lead_id, {
-            name: conversation.contact_name,
-            avatar: conversation.contact_avatar,
-        });
+    onError: (error: string) => {
+      console.error("[WebSocket] Error from server:", error);
+    },
+  });
+}
 
-        // Mark as read using conversation id
-        inboxActions.markAsRead(id);
+export function createConversationHandlers(
+  getAuthToken: () => string,
+  getTenantId: () => string | undefined,
+) {
+  // Setup WebSocket callbacks once
+  setupWebSocketCallbacks();
+
+  async function selectConversation(id: string | null) {
+    console.log("[selectConversation] Called with id:", id);
+    const authToken = getAuthToken();
+    if (!authToken) {
+      console.log("[selectConversation] No authToken, returning");
+      return;
     }
 
-    async function minimizeConversation() {
-        const conversation = get(currentConversation);
-        if (!conversation) return;
-
-        console.log("[minimizeConversation] Minimizing:", conversation.id);
-        tabsActions.minimizeConversation(conversation.id);
-        messagingActions.clearConversation(); // Clear the messaging console UI
-        // Don't clear inbox selection - keep list visible for selecting another conversation
+    if (!id) {
+      console.log("[selectConversation] Clearing selection");
+      webSocketService.disconnect();
+      inboxActions.selectConversation(null);
+      return;
     }
 
-    async function closeConversationTab(id: string) {
-        console.log("[closeConversationTab] Closing:", id);
-        const currentConv = get(currentConversation);
+    // Find the conversation to get its details
+    let conversation = get(filteredConversations).find((c) => c.id === id);
 
-        // Close in tabs system
-        tabsActions.closeConversation(id);
-
-        // If it's the current conversation, clear messaging state
-        if (currentConv?.id === id) {
-            messagingActions.clearConversation();
-            inboxActions.selectConversation(null);
-        }
+    if (!conversation) {
+      conversation = get(conversations).find((c) => c.id === id);
     }
 
-    async function changeTab(tab: "all" | "mine" | "unassigned") {
-        const token = getToken();
-        if (!token) return;
-        await loadInboxWithPagination(token, tab);
+    if (!conversation) {
+      const activeTab = get(activeConversations).find((c) => c.id === id);
+      if (activeTab) {
+        conversation = {
+          id: activeTab.id,
+          lead_id: activeTab.leadId,
+          contact_name: activeTab.contactName,
+          contact_avatar: activeTab.contactAvatar,
+        } as any;
+      }
     }
 
-    async function goToPage(page: number) {
-        const token = getToken();
-        if (!token) return;
-        const currentPagination = get(paginationSummary);
-        if (currentPagination?.page === page) return;
-        await paginationActions.loadPage(token, page);
+    if (!conversation) {
+      console.error("[INBOX] Conversation not found:", id);
+      return;
     }
 
-    async function sendMessage(msg: string) {
-        const token = getToken();
-        if (!token || !msg.trim()) return;
-        try {
-            await messagingActions.sendTextMessage(token, msg);
-        } catch (err) {
-            console.error("Send failed:", err);
-            throw err;
-        }
+    // Open conversation in tabs system
+    tabsActions.openConversation({
+      id: conversation.id,
+      leadId: conversation.lead_id,
+      contactName: conversation.contact_name,
+      contactAvatar: conversation.contact_avatar,
+    });
+
+    // Select conversation by ID for UI highlighting
+    inboxActions.selectConversation(id);
+
+    // Load conversation details using lead_id
+    await messagingActions.loadConversation(authToken, conversation.lead_id, {
+      name: conversation.contact_name,
+      avatar: conversation.contact_avatar,
+    });
+
+    // Connect WebSocket to this lead
+    const tenantId = getTenantId();
+    if (tenantId && conversation.lead_id) {
+      console.log("[WebSocket] Connecting to lead:", conversation.lead_id);
+      webSocketService.connect(tenantId, conversation.lead_id, authToken);
     }
 
-    async function sendFile(file: File) {
-        const token = getToken();
-        if (!token) return;
-        try {
-            await messagingActions.sendFileMessage(token, file);
-        } catch (err) {
-            console.error("File send failed:", err);
-        }
+    // Mark as read using conversation id
+    inboxActions.markAsRead(id);
+  }
+
+  async function minimizeConversation() {
+    const conversation = get(currentConversation);
+    if (!conversation) return;
+
+    console.log("[minimizeConversation] Minimizing:", conversation.id);
+    webSocketService.disconnect();
+    tabsActions.minimizeConversation(conversation.id);
+    messagingActions.clearConversation();
+  }
+
+  async function closeConversationTab(id: string) {
+    console.log("[closeConversationTab] Closing:", id);
+    const currentConv = get(currentConversation);
+
+    tabsActions.closeConversation(id);
+
+    if (currentConv?.id === id) {
+      webSocketService.disconnect();
+      messagingActions.clearConversation();
+      inboxActions.selectConversation(null);
     }
+  }
 
-    async function sendAudio(file: File) {
-        const token = getToken();
-        if (!token) return;
-        try {
-            await messagingActions.sendAudioMessage(token, file);
-        } catch (err) {
-            console.error("Audio send failed:", err);
-        }
+  async function changeTab(tab: "all" | "mine" | "unassigned") {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+    await loadInboxWithPagination(authToken, tab);
+  }
+
+  async function goToPage(page: number) {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+    const currentPagination = get(paginationSummary);
+    if (currentPagination?.page === page) return;
+    await paginationActions.loadPage(authToken, page);
+  }
+
+  async function sendMessage(msg: string) {
+    const authToken = getAuthToken();
+    if (!authToken || !msg.trim()) return;
+    try {
+      await sendTextMessageViaWS(msg);
+    } catch (err) {
+      console.error("Send failed:", err);
+      throw err;
     }
+  }
 
-    async function handleAIToggle(enabled: boolean, reason?: string) {
-        const token = getToken();
-        const conversation = get(currentConversation);
-        if (!token || !conversation?.lead) return;
-        try {
-            await toggleAI(token, conversation.lead.id, enabled, reason);
-            // Reload conversation to get updated AI status
-            await messagingActions.loadConversation(token, conversation.id);
-        } catch (err) {
-            console.error("AI toggle failed:", err);
-        }
+  async function sendFile(file: File) {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+    try {
+      await messagingActions.sendFileMessage(authToken, file);
+    } catch (err) {
+      console.error("File send failed:", err);
     }
+  }
 
-    async function handleAIPause(reason: string) {
-        const token = getToken();
-        const conversation = get(currentConversation);
-        if (!token || !conversation?.lead) return;
-        try {
-            await pauseAI(token, conversation.lead.id, reason);
-            await messagingActions.loadConversation(token, conversation.id);
-        } catch (err) {
-            console.error("AI pause failed:", err);
-        }
+  async function sendAudio(file: File) {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+    try {
+      await messagingActions.sendAudioMessage(authToken, file);
+    } catch (err) {
+      console.error("Audio send failed:", err);
     }
+  }
 
-    async function handleAIResume() {
-        const token = getToken();
-        const conversation = get(currentConversation);
-        if (!token || !conversation?.lead) return;
-        try {
-            await resumeAI(token, conversation.lead.id);
-            await messagingActions.loadConversation(token, conversation.id);
-        } catch (err) {
-            console.error("AI resume failed:", err);
-        }
+  async function handleAIToggle(enabled: boolean, reason?: string) {
+    const authToken = getAuthToken();
+    const conversation = get(currentConversation);
+    if (!authToken || !conversation?.lead) return;
+    try {
+      await toggleAI(authToken, conversation.lead.id, enabled, reason);
+      await messagingActions.loadConversation(authToken, conversation.id);
+    } catch (err) {
+      console.error("AI toggle failed:", err);
     }
+  }
 
-    function handleAssignAgent(agentId: string) {
-        const token = getToken();
-        const conversation = get(currentConversation);
-        if (!conversation || !token) return;
-
-        // Use the actual lead ID from the lead object if available, otherwise fallback
-        const targetLeadId = conversation.lead?.id || conversation.lead_id;
-
-        agentActions.assignAgent(
-            token,
-            conversation.id,
-            targetLeadId,
-            agentId,
-        );
+  async function handleAIPause(reason: string) {
+    const authToken = getAuthToken();
+    const conversation = get(currentConversation);
+    if (!authToken || !conversation?.lead) return;
+    try {
+      await pauseAI(authToken, conversation.lead.id, reason);
+      await messagingActions.loadConversation(authToken, conversation.id);
+    } catch (err) {
+      console.error("AI pause failed:", err);
     }
+  }
 
-    function formatTime(timestamp: string): string {
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return "Ahora";
-        if (diffMins < 60) return `Hace ${diffMins} min`;
-        if (diffHours < 24) return `Hace ${diffHours}h`;
-        if (diffDays < 7) return `Hace ${diffDays}d`;
-        return date.toLocaleDateString("es-ES", {
-            day: "numeric",
-            month: "short",
-        });
+  async function handleAIResume() {
+    const authToken = getAuthToken();
+    const conversation = get(currentConversation);
+    if (!authToken || !conversation?.lead) return;
+    try {
+      await resumeAI(authToken, conversation.lead.id);
+      await messagingActions.loadConversation(authToken, conversation.id);
+    } catch (err) {
+      console.error("AI resume failed:", err);
     }
+  }
 
-    return {
-        selectConversation,
-        minimizeConversation,
-        closeConversationTab,
-        changeTab,
-        goToPage,
-        sendMessage,
-        sendFile,
-        sendAudio,
-        handleAIToggle,
-        handleAIPause,
-        handleAIResume,
-        handleAssignAgent,
-        formatTime,
-    };
+  function handleAssignAgent(agentId: string | null) {
+    const authToken = getAuthToken();
+    const conversation = get(currentConversation);
+    if (!conversation || !authToken) return;
+
+    const targetLeadId = conversation.lead?.id || conversation.lead_id;
+    agentActions.assignAgent(authToken, conversation.id, targetLeadId, agentId);
+  }
+
+  async function handleStageChange(stageId: string) {
+    const authToken = getAuthToken();
+    const conversation = get(currentConversation);
+    if (!authToken || !conversation?.lead_id) return;
+
+    try {
+      await moveLead(authToken, conversation.lead_id, stageId);
+      await messagingActions.loadConversation(authToken, conversation.lead_id);
+      await loadInboxWithPagination(authToken, "all");
+    } catch (err) {
+      console.error("Stage change failed:", err);
+    }
+  }
+
+  function formatTime(timestamp: string): string {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "";
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Ahora";
+    if (diffMins < 60) return `Hace ${diffMins} min`;
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    if (diffDays < 7) return `Hace ${diffDays}d`;
+    return date.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+    });
+  }
+
+  return {
+    selectConversation,
+    minimizeConversation,
+    closeConversationTab,
+    changeTab,
+    goToPage,
+    sendMessage,
+    sendFile,
+    sendAudio,
+    handleAIToggle,
+    handleAIPause,
+    handleAIResume,
+    handleAssignAgent,
+    handleStageChange,
+    formatTime,
+  };
 }
