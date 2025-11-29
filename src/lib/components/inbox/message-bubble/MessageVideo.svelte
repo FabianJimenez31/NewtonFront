@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
-	import { Check, CheckCheck, Image as ImageIcon, Loader2, X, ZoomIn } from 'lucide-svelte';
+	import { Check, CheckCheck, Video as VideoIcon, Play, Loader2 } from 'lucide-svelte';
 	import { scale, fade } from 'svelte/transition';
 
 	interface Props {
@@ -15,26 +15,16 @@
 
 	let isLoading = $state(true);
 	let hasError = $state(false);
-	let showLightbox = $state(false);
+	let videoElement: HTMLVideoElement | undefined = $state();
 
-	function handleImageLoad() {
+	function handleVideoLoad() {
 		isLoading = false;
 		hasError = false;
 	}
 
-	function handleImageError() {
+	function handleVideoError() {
 		isLoading = false;
 		hasError = true;
-	}
-
-	function openLightbox() {
-		if (!hasError && fileUrl) {
-			showLightbox = true;
-		}
-	}
-
-	function closeLightbox() {
-		showLightbox = false;
 	}
 
 	// Format time
@@ -59,7 +49,7 @@
 	const StatusIcon = $derived(statusIcons[status]);
 </script>
 
-<div class="overflow-hidden">
+<div class="overflow-hidden max-w-sm">
 	<!-- Sender indicator -->
 	<div class="px-4 pt-3">
 		{#if sender === 'customer'}
@@ -80,55 +70,42 @@
 		{/if}
 	</div>
 
-	<!-- Image Container -->
-	<button
-		type="button"
-		onclick={openLightbox}
-		class="relative group cursor-pointer overflow-hidden max-w-sm rounded-lg"
-		disabled={hasError || !fileUrl}
-	>
+	<!-- Video Container -->
+	<div class="relative rounded-lg overflow-hidden">
 		{#if fileUrl && !hasError}
 			<!-- Loading skeleton -->
 			{#if isLoading}
 				<div
-					class="absolute inset-0 bg-muted/30 animate-pulse flex items-center justify-center"
+					class="absolute inset-0 bg-muted/30 animate-pulse flex items-center justify-center z-10"
 					transition:fade
 				>
 					<Loader2 class="h-8 w-8 opacity-50 animate-spin" />
 				</div>
 			{/if}
 
-			<!-- Image -->
-			<img
+			<!-- Video element -->
+			<video
+				bind:this={videoElement}
 				src={fileUrl}
-				alt={content || 'Imagen'}
-				class={cn(
-					'max-w-full h-auto transition-all duration-300',
-					isLoading && 'opacity-0',
-					'group-hover:scale-105'
-				)}
-				onload={handleImageLoad}
-				onerror={handleImageError}
-			/>
-
-			<!-- Hover overlay -->
-			<div
-				class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100"
+				controls
+				class={cn('w-full h-auto rounded-lg', isLoading && 'opacity-0')}
+				onloadeddata={handleVideoLoad}
+				onerror={handleVideoError}
+				preload="metadata"
 			>
-				<div class="bg-white/90 rounded-full p-2">
-					<ZoomIn class="h-5 w-5 text-gray-800" />
-				</div>
-			</div>
+				<track kind="captions" />
+				Tu navegador no soporta la reproducción de video.
+			</video>
 		{:else}
 			<!-- Error state -->
-			<div class="flex items-center justify-center h-48 bg-muted/30">
+			<div class="flex items-center justify-center h-48 bg-muted/30 rounded-lg">
 				<div class="flex flex-col items-center gap-2">
-					<ImageIcon class="h-12 w-12 opacity-30" />
-					<span class="text-xs opacity-50">No se pudo cargar la imagen</span>
+					<VideoIcon class="h-12 w-12 opacity-30" />
+					<span class="text-xs opacity-50">No se pudo cargar el video</span>
 				</div>
 			</div>
 		{/if}
-	</button>
+	</div>
 
 	<!-- Caption -->
 	{#if content}
@@ -151,36 +128,3 @@
 		{/if}
 	</div>
 </div>
-
-<!-- Lightbox Modal -->
-{#if showLightbox}
-	<div
-		class="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
-		onclick={closeLightbox}
-		transition:fade={{ duration: 200 }}
-	>
-		<button
-			type="button"
-			onclick={closeLightbox}
-			class="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-		>
-			<X class="h-6 w-6 text-white" />
-		</button>
-
-		<img
-			src={fileUrl}
-			alt={content || 'Imagen'}
-			class="max-w-full max-h-full object-contain"
-			onclick={(e) => e.stopPropagation()}
-			transition:scale={{ duration: 300 }}
-		/>
-
-		{#if content}
-			<div
-				class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-lg max-w-2xl"
-			>
-				<p class="text-sm text-center">{content}</p>
-			</div>
-		{/if}
-	</div>
-{/if}

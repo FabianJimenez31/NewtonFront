@@ -23,7 +23,10 @@
 		ArrowLeft,
 		Minimize2,
 		X,
+		Wifi,
+		WifiOff,
 	} from "lucide-svelte";
+	import { webSocketService } from "$lib/services/websocket.service";
 
 	interface Props {
 		contactName: string;
@@ -43,35 +46,20 @@
 		class?: string;
 	}
 
-	let {
-		contactName,
-		contactStatus = "offline",
-		avatarUrl,
-		channel,
-		assignedAgent,
-		onCall,
-		onVideoCall,
-		onAssign,
-		onArchive,
-		onBlock,
-		onDelete,
-		onBack,
-		onMinimize,
-		onClose,
-		class: className,
-	}: Props = $props();
-
-	// Get initials from contact name
-	const initials = $derived(
-		contactName
-			? contactName
-					.split(" ")
-					.map((n) => n[0])
-					.join("")
-					.toUpperCase()
-					.substring(0, 2)
-			: "??",
-	);
+	// WebSocket connection status
+	const connectionStatus = $derived(webSocketService.connectionStatus);
+	const wsStatusLabels = {
+		connected: "Conectado",
+		disconnected: "Desconectado",
+		connecting: "Conectando...",
+		error: "Error de conexión",
+	};
+	const wsStatusColors = {
+		connected: "bg-emerald-500",
+		disconnected: "bg-gray-400",
+		connecting: "bg-yellow-500",
+		error: "bg-red-500",
+	};
 
 	// Status indicator styling
 	const statusStyles = {
@@ -85,6 +73,51 @@
 		offline: "Desconectado",
 		typing: "Escribiendo...",
 	};
+
+	import StageSelector from "./StageSelector.svelte";
+
+	interface Stage {
+		id: string;
+		name: string;
+		color?: string;
+	}
+
+	let {
+		contactName,
+		contactStatus = "offline",
+		avatarUrl,
+		channel,
+		assignedAgent,
+		stageId,
+		stages = [],
+		onCall,
+		onVideoCall,
+		onAssign,
+		onStageChange,
+		onArchive,
+		onBlock,
+		onDelete,
+		onBack,
+		onMinimize,
+		onClose,
+		class: className,
+	}: Props & {
+		stageId?: string;
+		stages?: Stage[];
+		onStageChange?: (stageId: string) => void;
+	} = $props();
+
+	// Get initials from contact name
+	const initials = $derived(
+		contactName
+			? contactName
+					.split(" ")
+					.map((n) => n[0])
+					.join("")
+					.toUpperCase()
+					.substring(0, 2)
+			: "??",
+	);
 </script>
 
 <div
@@ -126,10 +159,25 @@
 
 		<!-- Name and status -->
 		<div class="min-w-0 flex-1">
-			<h3 class="font-semibold text-sm text-foreground truncate">
-				{contactName}
-			</h3>
 			<div class="flex items-center gap-2">
+				<h3 class="font-semibold text-sm text-foreground truncate">
+					{contactName}
+				</h3>
+				<!-- WebSocket Status Indicator -->
+				<div 
+					class="flex items-center gap-1.5 px-1.5 py-0.5 rounded-full bg-muted/50 border border-border/50"
+					title={`Estado del chat: ${wsStatusLabels[$connectionStatus]}`}
+				>
+					<div class={cn("w-2 h-2 rounded-full animate-pulse", wsStatusColors[$connectionStatus])}></div>
+					{#if $connectionStatus !== 'connected'}
+						<span class="text-[10px] text-muted-foreground font-medium">
+							{$connectionStatus === 'connecting' ? 'Conectando...' : 'Offline'}
+						</span>
+					{/if}
+				</div>
+			</div>
+			
+			<div class="flex items-center gap-2 mt-0.5">
 				<p class="text-xs text-muted-foreground">
 					{statusLabels[contactStatus]}
 				</p>
@@ -146,6 +194,17 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- Stage Selector -->
+	{#if onStageChange && stages.length > 0}
+		<div class="hidden md:block ml-4">
+			<StageSelector
+				currentStageId={stageId}
+				{stages}
+				onSelect={onStageChange}
+			/>
+		</div>
+	{/if}
 
 	<!-- Right: Action Buttons -->
 	<div class="flex items-center gap-1">

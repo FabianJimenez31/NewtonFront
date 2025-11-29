@@ -5,18 +5,20 @@
 	import MessageImage from "./message-bubble/MessageImage.svelte";
 	import MessageAudio from "./message-bubble/MessageAudio.svelte";
 	import MessageFile from "./message-bubble/MessageFile.svelte";
+	import MessageVideo from "./message-bubble/MessageVideo.svelte";
 
 	interface Props {
 		id: string;
 		content: string;
 		sender: "customer" | "agent" | "ai" | "system";
 		timestamp: string;
-		type?: "text" | "audio" | "file" | "image";
+		type?: "text" | "audio" | "file" | "image" | "video";
 		fileUrl?: string;
 		fileName?: string;
 		isInternal?: boolean;
 		status?: "sending" | "sent" | "delivered" | "read" | "failed";
 		class?: string;
+		senderName?: string;
 	}
 
 	let {
@@ -30,15 +32,23 @@
 		isInternal = false,
 		status = "sent",
 		class: className,
+		senderName,
 	}: Props = $props();
 
 	// Format time for internal/system messages
-	const formattedTime = $derived(
-		new Date(timestamp).toLocaleTimeString("es-ES", {
-			hour: "2-digit",
-			minute: "2-digit",
-		}),
-	);
+	const formattedTime = $derived.by(() => {
+		try {
+			if (!timestamp) return "";
+			const date = new Date(timestamp);
+			if (isNaN(date.getTime())) return "";
+			return date.toLocaleTimeString("es-ES", {
+				hour: "2-digit",
+				minute: "2-digit",
+			});
+		} catch (e) {
+			return "";
+		}
+	});
 
 	// Message alignment and styling
 	const isFromCustomer = $derived(sender === "customer");
@@ -91,7 +101,7 @@
 			)}
 		>
 			{#if type === "text"}
-				<MessageText {content} {timestamp} {sender} {status} />
+				<MessageText {content} {timestamp} {sender} {status} {senderName} />
 			{:else if type === "image"}
 				<MessageImage
 					{content}
@@ -102,6 +112,8 @@
 				/>
 			{:else if type === "audio"}
 				<MessageAudio {fileUrl} {timestamp} {sender} {status} />
+			{:else if type === "video"}
+				<MessageVideo {content} {fileUrl} {timestamp} {sender} {status} />
 			{:else if type === "file"}
 				<MessageFile
 					{content}

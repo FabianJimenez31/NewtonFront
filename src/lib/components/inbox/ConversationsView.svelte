@@ -32,6 +32,7 @@
 	import { stageStatsStore, type DateFilter } from "$lib/stores/stage-stats.store";
 	import { webSocketService } from "$lib/services/websocket.service";
 	import { notificationsWS } from "$lib/services/notifications.websocket.service";
+	import * as mediaHandlers from "$lib/handlers/conversation.media.handlers";
 
 	let token = $derived($authStore.token);
 	let tenantId = $derived($authStore.user?.tenant_id);
@@ -89,6 +90,23 @@
 	async function onSendMessage(content: string) {
 		await handlers.sendMessage(content);
 		replyMessage = "";
+	}
+
+	// Media handlers
+	function handleSendAudio(audioBase64: string, duration: number) {
+		mediaHandlers.sendAudioMessage(audioBase64, duration);
+	}
+
+	function handleSendImage(base64: string, mimetype: string, filename: string, caption?: string) {
+		mediaHandlers.sendImageMessage(base64, mimetype, filename, caption);
+	}
+
+	function handleSendPdf(base64: string, filename: string, caption?: string) {
+		mediaHandlers.sendPdfMessage(base64, filename, caption);
+	}
+
+	function handleSendVideo(base64: string, mimetype: string, filename: string, caption?: string) {
+		mediaHandlers.sendVideoMessage(base64, mimetype, filename, caption);
 	}
 
 	async function handleDateFilterChange(filter: DateFilter, customRange?: { start: Date | null; end: Date | null }) {
@@ -187,7 +205,11 @@
 							fileName: m.metadata?.file_name, isInternal: m.internal, sender_name: m.sender_name,
 						})) as any}
 						isLoading={$isLoadingMessages} isSending={$isSending} agents={$agents}
-						onAssign={handlers.handleAssignAgent} onSendMessage={onSendMessage}>
+						onAssign={handlers.handleAssignAgent} onSendMessage={onSendMessage}
+						onSendAudio={handleSendAudio}
+						onSendImage={handleSendImage}
+						onSendPdf={handleSendPdf}
+						onSendVideo={handleSendVideo}>
 						{#snippet messageHeader(contact)}
 							<MessageHeader contactName={contact.name} avatarUrl={contact.avatarUrl}
 								channel={$currentConversation?.channel}

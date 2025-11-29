@@ -7,17 +7,25 @@
         timestamp: string;
         sender: "customer" | "agent" | "ai" | "system";
         status?: "sending" | "sent" | "delivered" | "read" | "failed";
+        senderName?: string;
     }
 
-    let { content, timestamp, sender, status = "sent" }: Props = $props();
+    let { content, timestamp, sender, status = "sent", senderName }: Props = $props();
 
     // Format time
-    const formattedTime = $derived(
-        new Date(timestamp).toLocaleTimeString("es-ES", {
-            hour: "2-digit",
-            minute: "2-digit",
-        }),
-    );
+    const formattedTime = $derived.by(() => {
+        try {
+            if (!timestamp) return "";
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) return ""; // Invalid date
+            return date.toLocaleTimeString("es-ES", {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } catch (e) {
+            return "";
+        }
+    });
 
     const isFromCustomer = $derived(sender === "customer");
 
@@ -46,7 +54,7 @@
         <div class="flex items-center gap-1.5 mb-2 opacity-90">
             <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
             <span class="text-[10px] font-semibold uppercase tracking-wide"
-                >Agente</span
+                >{senderName || "Agente"}</span
             >
         </div>
     {:else if sender === "ai"}

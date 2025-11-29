@@ -89,8 +89,9 @@ export async function moveLead(
   notes?: string,
 ): Promise<any> {
   try {
-    return await authenticatedFetchJSON(`${LEADS_BASE}/${leadId}/move`, token, {
-      method: "PATCH",
+    // User reported /move endpoint does not exist. Using standard PUT update.
+    return await authenticatedFetchJSON(`${LEADS_BASE}/${leadId}`, token, {
+      method: "PUT",
       body: JSON.stringify({ stage_id: stageId, notes }),
       timeout: 5000,
     });

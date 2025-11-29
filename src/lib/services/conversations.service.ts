@@ -136,6 +136,7 @@ export async function getConversation(
 /**
  * Send text message
  * @endpoint POST /api/v1/conversations/{conversation_id}/messages
+ * @deprecated Use sendMessageToLead for new implementations
  */
 export async function sendMessage(
   token: string,
@@ -149,6 +150,38 @@ export async function sendMessage(
       {
         method: "POST",
         body: JSON.stringify({ content }),
+        timeout: 10000,
+      },
+    );
+    return await response.json();
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+}
+
+/**
+ * Send text message to lead (recommended endpoint)
+ * @endpoint POST /api/v1/leads/{lead_id}/messages
+ */
+export async function sendMessageToLead(
+  token: string,
+  leadId: string,
+  content: string,
+  messageType: string = "text",
+): Promise<Message> {
+  try {
+    const response = await authenticatedFetch(
+      `${API_BASE_URL}/leads/${leadId}/messages`,
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          content,
+          message_type: messageType,
+          media_url: null,
+          media_filename: null,
+          media_mimetype: null,
+        }),
         timeout: 10000,
       },
     );

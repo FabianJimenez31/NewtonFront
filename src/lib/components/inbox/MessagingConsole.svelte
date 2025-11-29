@@ -4,7 +4,7 @@
 	import ConsoleHeader from "./ConsoleHeader.svelte";
 	import MessageBubble from "./MessageBubble.svelte";
 	import MessageSystem from "./message-bubble/MessageSystem.svelte";
-	import Composer from "./Composer.svelte";
+	import ComposerNew from "./ComposerNew.svelte";
 	import type { Agent } from "$lib/types/inbox.types";
 
 	interface Message {
@@ -12,11 +12,12 @@
 		content: string;
 		sender: "customer" | "agent" | "system" | "ai";
 		timestamp: string;
-		type?: "text" | "audio" | "file" | "image";
+		type?: "text" | "audio" | "file" | "image" | "video";
 		fileUrl?: string;
 		fileName?: string;
 		isInternal?: boolean;
 		status?: "sending" | "sent" | "delivered" | "read" | "failed";
+		sender_name?: string;
 	}
 
 	interface Contact {
@@ -48,6 +49,10 @@
 			type: "text" | "audio" | "file",
 			isInternal: boolean,
 		) => void;
+		onSendAudio?: (audioBase64: string, duration: number) => void;
+		onSendImage?: (base64: string, mimetype: string, filename: string, caption?: string) => void;
+		onSendPdf?: (base64: string, filename: string, caption?: string) => void;
+		onSendVideo?: (base64: string, mimetype: string, filename: string, caption?: string) => void;
 		onAssign?: (agentId: string) => void;
 		onStageChange?: (stageId: string) => void;
 		class?: string;
@@ -64,6 +69,10 @@
 		isLoading = false,
 		isSending = false,
 		onSendMessage,
+		onSendAudio,
+		onSendImage,
+		onSendPdf,
+		onSendVideo,
 		onAssign,
 		onStageChange,
 		messageHeader,
@@ -167,6 +176,7 @@
 							fileName={message.fileName}
 							isInternal={message.isInternal}
 							status={message.status}
+							senderName={message.sender_name}
 						/>
 					{/if}
 				{/each}
@@ -174,9 +184,13 @@
 		</div>
 
 		<!-- Composer -->
-		<Composer
+		<ComposerNew
 			onSend={(content, type, isInternal) =>
 				onSendMessage?.(content, type, isInternal)}
+			onSendAudio={(audioBase64, duration) => onSendAudio?.(audioBase64, duration)}
+			onSendImage={(base64, mimetype, filename, caption) => onSendImage?.(base64, mimetype, filename, caption)}
+			onSendPdf={(base64, filename, caption) => onSendPdf?.(base64, filename, caption)}
+			onSendVideo={(base64, mimetype, filename, caption) => onSendVideo?.(base64, mimetype, filename, caption)}
 			isAiEnabled={true}
 		/>
 	{/if}

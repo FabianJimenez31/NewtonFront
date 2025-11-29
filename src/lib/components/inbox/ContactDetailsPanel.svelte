@@ -19,6 +19,8 @@
 		availableStages?: Stage[];
 		onContactUpdate?: (data: Partial<ConversationDetail>) => void;
 		onStageChange?: (stageId: string) => void;
+		agents?: any[];
+		onAssignAgent?: (agentId: string | null) => void;
 		onAIToggle?: (enabled: boolean, reason?: string) => Promise<void>;
 		onAIPause?: (reason: string) => Promise<void>;
 		onAIResume?: () => Promise<void>;
@@ -30,6 +32,8 @@
 		availableStages = [],
 		onContactUpdate,
 		onStageChange,
+		agents = [],
+		onAssignAgent,
 		onAIToggle,
 		onAIPause,
 		onAIResume,
@@ -104,7 +108,13 @@
 				<Separator />
 
 				<!-- Lead Information -->
-				<LeadInfo {conversation} {availableStages} {onStageChange} />
+				<LeadInfo
+					{conversation}
+					{availableStages}
+					{onStageChange}
+					{agents}
+					{onAssignAgent}
+				/>
 
 				<Separator />
 
