@@ -24,6 +24,7 @@ import {
 import {
   mapApiConversation,
   mapApiConversationDetail,
+  mapApiMessage,
 } from "./conversations.mappers";
 
 const CONVERSATIONS_BASE = `${API_BASE_URL}/conversations`;
@@ -206,16 +207,18 @@ export async function pollMessages(token: string): Promise<Message[]> {
     );
 
     // Handle different response formats
+    let rawMessages: any[] = [];
     if (Array.isArray(response)) {
-      return response;
+      rawMessages = response;
     } else if (response?.messages && Array.isArray(response.messages)) {
-      return response.messages;
+      rawMessages = response.messages;
     } else if (response?.data && Array.isArray(response.data)) {
-      return response.data;
-    } else {
-      // No new messages or unexpected format
-      return [];
+      rawMessages = response.data;
     }
+
+    return rawMessages.map((msg) =>
+      mapApiMessage(msg, msg.conversation_id || msg.lead_id || ""),
+    );
   } catch (error) {
     // Polling errors are common (no new messages), don't throw
     console.debug("[POLLING] No new messages or error:", error);

@@ -97,6 +97,8 @@ export const inboxActions = {
 
   /**
    * Update filters
+   * NOTE: Search filter updates are handled specially - they trigger backend API calls
+   * via paginationActions.search() instead of client-side filtering
    */
   updateFilters(newFilters: Partial<InboxFilters> | Record<string, any>) {
     console.log("[INBOX ACTIONS] updateFilters called with:", newFilters);

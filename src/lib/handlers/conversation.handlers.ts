@@ -30,6 +30,7 @@ import {
 } from "$lib/services/websocket.service";
 import type { Message, MessageSender } from "$lib/types/inbox.types";
 import { sendTextMessageViaWS } from "$lib/stores/messaging.websocket";
+import { mapApiMessage } from "$lib/services/conversations.mappers";
 
 /**
  * Setup WebSocket callbacks for handling incoming messages
@@ -42,13 +43,6 @@ function setupWebSocketCallbacks() {
 
       if (!message) return;
 
-      // Map sender type
-      let mappedSender: MessageSender = "contact";
-      if (message.sender === "lead") mappedSender = "contact";
-      else if (message.sender === "agent") mappedSender = "agent";
-      else if (message.sender === "ai") mappedSender = "ai";
-      else if (message.sender === "system") mappedSender = "system";
-
       // Check if this is for the currently active conversation
       const activeConversation = get(currentConversation);
       const currentLeadId = webSocketService.getCurrentLeadId();
@@ -59,6 +53,8 @@ function setupWebSocketCallbacks() {
           activeConversation.lead_id === currentLeadId ||
           activeConversation.id === leadId);
 
+      let mappedMessage: Message | null = null;
+
       if (isCurrentConversation) {
         // Check for duplicates
         const currentMessages = get(messages);
@@ -67,17 +63,13 @@ function setupWebSocketCallbacks() {
           messageId && currentMessages.some((m) => m.id === messageId);
 
         if (!isDuplicate) {
-          const enrichedMessage: Message = {
-            ...(message as unknown as Message),
-            sender: mappedSender,
-            sender_name:
-              (message.sender_name as string) ||
-              (mappedSender === "contact"
-                ? (message.contact_name as string)
-                : "Agente"),
-          };
-          messagingActions.addMessage(enrichedMessage);
+          // Use mapApiMessage to properly process the message
+          // This ensures URLs are normalized and types are correct
+          const conversationId = activeConversation?.id || (leadId as string) || "";
+          mappedMessage = mapApiMessage(message, conversationId);
+
           console.log("[WebSocket] Message added to conversation");
+          messagingActions.addMessage(mappedMessage);
         }
       }
 
@@ -87,9 +79,36 @@ function setupWebSocketCallbacks() {
         inboxActions.updateConversation(convId, {
           last_message: message.content as string,
           last_message_time: message.timestamp as string,
-          last_message_sender: mappedSender,
+          last_message_sender: mappedMessage?.sender || ("contact" as MessageSender),
           unread_count: isCurrentConversation ? 0 : undefined,
         });
+      }
+    },
+
+    onMessageSent: (data: WebSocketMessage) => {
+      console.log("[WebSocket] Message sent confirmation received:", data);
+      const message = data.message;
+      if (!message) return;
+
+      // Update the optimistic message with the server response
+      // The server returns the confirmed message with the real ID and media URL
+      const conversationId = get(currentConversation)?.id || "";
+      const mappedMessage = mapApiMessage(message, conversationId);
+
+      console.log("[WebSocket] Updating optimistic message with server data");
+
+      // Find and update temp message or add if not exists
+      const currentMessages = get(messages);
+      const tempMessageIndex = currentMessages.findIndex(m =>
+        m.id.startsWith('temp-')
+      );
+
+      if (tempMessageIndex >= 0) {
+        // Update the temp message with real data
+        messagingActions.updateMessage(currentMessages[tempMessageIndex].id, mappedMessage);
+      } else {
+        // Add as new message if temp not found
+        messagingActions.addMessage(mappedMessage);
       }
     },
 

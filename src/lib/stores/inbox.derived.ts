@@ -60,17 +60,10 @@ export const filteredConversations = derived(
       filtered = filtered.filter((c) => !c.assigned_agent);
     }
 
-    // Apply search filter
-    if ($filters.search) {
-      const search = $filters.search.toLowerCase();
-      filtered = filtered.filter(
-        (c) =>
-          c.contact_name.toLowerCase().includes(search) ||
-          c.last_message.toLowerCase().includes(search) ||
-          c.contact_phone.includes(search) ||
-          c.contact_email?.toLowerCase().includes(search),
-      );
-    }
+    // NOTE: Search filter is now handled by the backend API
+    // When a search query is present, paginationActions.search() is called
+    // which fetches filtered results directly from the backend
+    // We no longer apply client-side filtering for search queries
 
     // Apply status filter
     if ($filters.status) {

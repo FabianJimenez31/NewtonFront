@@ -101,7 +101,13 @@
 			)}
 		>
 			{#if type === "text"}
-				<MessageText {content} {timestamp} {sender} {status} {senderName} />
+				<MessageText
+					{content}
+					{timestamp}
+					{sender}
+					{status}
+					{senderName}
+				/>
 			{:else if type === "image"}
 				<MessageImage
 					{content}
@@ -113,9 +119,16 @@
 			{:else if type === "audio"}
 				<MessageAudio {fileUrl} {timestamp} {sender} {status} />
 			{:else if type === "video"}
-				<MessageVideo {content} {fileUrl} {timestamp} {sender} {status} />
+				<MessageVideo
+					{content}
+					{fileUrl}
+					{timestamp}
+					{sender}
+					{status}
+				/>
 			{:else if type === "file"}
 				<MessageFile
+					{id}
 					{content}
 					{fileUrl}
 					{fileName}

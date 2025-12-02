@@ -12,6 +12,7 @@ import {
     sendFile,
     pollMessages,
 } from "$lib/services/conversations.service";
+import { mapApiMessage } from "$lib/services/conversations.mappers";
 import { getLead } from "$lib/services/leads.service";
 import { agents } from "./inbox.agents.store";
 import { authStore } from "./auth.store";
@@ -156,7 +157,7 @@ export async function sendTextMessage(token: string, content: string) {
 
     try {
         const response = await sendMessageToLead(token, conversation.lead_id, content);
-        
+
         // Handle potential response wrapper (e.g. { message: {...}, conversation: {...} })
         const messageData = (response as any).message || response;
 
@@ -208,7 +209,8 @@ export async function sendAudioMessage(token: string, audioFile: File) {
     error.set(null);
 
     try {
-        const newMessage = await sendAudio(token, conversation.id, audioFile);
+        const response = await sendAudio(token, conversation.id, audioFile);
+        const newMessage = mapApiMessage(response, conversation.id);
         messages.update((msgs) => [...msgs, newMessage]);
 
         // Update last message in conversation
@@ -242,7 +244,8 @@ export async function sendFileMessage(token: string, file: File) {
     error.set(null);
 
     try {
-        const newMessage = await sendFile(token, conversation.id, file);
+        const response = await sendFile(token, conversation.id, file);
+        const newMessage = mapApiMessage(response, conversation.id);
         messages.update((msgs) => [...msgs, newMessage]);
 
         // Update last message in conversation

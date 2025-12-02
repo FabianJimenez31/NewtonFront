@@ -132,6 +132,8 @@ class WebSocketCoreService {
   }
 
   private handleMessage(data: WebSocketMessage): void {
+    console.log("[WebSocket] Received message type:", data.type, "Full data:", data);
+
     switch (data.type) {
       case "pong":
       case "connection_established":
@@ -153,6 +155,8 @@ class WebSocketCoreService {
         this.lastError.set(errorMsg);
         this.callbacks.onError?.(errorMsg);
         break;
+      default:
+        console.warn("[WebSocket] Unknown message type:", data.type);
     }
   }
 

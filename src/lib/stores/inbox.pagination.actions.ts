@@ -95,6 +95,63 @@ export const paginationActions = {
   },
 
   /**
+   * Search conversations globally
+   * When search query is provided, fetches results using the maximum allowed limit (100)
+   * For larger result sets, the user can paginate through search results
+   */
+  async search(token: string, searchQuery: string, priority: boolean = false) {
+    if (get(isPageLoading)) {
+      console.log("[SEARCH] Skipping search - already in progress");
+      return;
+    }
+
+    isPageLoading.set(true);
+    error.set(null);
+
+    try {
+      const currentFilters = get(filters);
+
+      console.log(`[SEARCH] Searching for: "${searchQuery}"`);
+
+      // Use maximum allowed limit (100) as per API validation
+      const params = {
+        ...currentFilters,
+        search: searchQuery,
+        page: 1,
+        limit: 100, // Maximum allowed by API
+      };
+
+      console.log("[SEARCH] API params:", params);
+
+      const response = priority
+        ? await getPriorityInbox(token, params)
+        : await getInbox(token, params);
+
+      console.log(
+        `[SEARCH] Found ${response.conversations.length} results on page 1 (total: ${response.total})`,
+      );
+
+      conversations.set(response.conversations);
+
+      // Update pagination metadata with search results
+      // User can navigate through pages if there are more than 100 results
+      applyPaginationMeta({
+        page: response.page,
+        pages: response.pages,
+        total: response.total,
+        limit: 100,
+      });
+    } catch (err) {
+      error.set(
+        err instanceof Error ? err.message : "Error searching conversations",
+      );
+      console.error("[SEARCH] Failed to search:", err);
+    } finally {
+      isPageLoading.set(false);
+    }
+  },
+
+  /**
    * Reset pagination metadata and target the first page
    */
   async reset(token: string, tab: InboxTab = "all", priority: boolean = false) {

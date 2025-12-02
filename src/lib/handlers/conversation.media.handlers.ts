@@ -78,9 +78,11 @@ export async function sendImageMessage(
     read: false,
     metadata: {
       file_name: filename,
+      file_url: `data:${mimetype};base64,${base64}`,
     },
   };
 
+  console.log("[Media Handlers] Created optimistic message:", tempMessage);
   messagingActions.addMessage(tempMessage);
 
   // Send via WebSocket
@@ -126,6 +128,7 @@ export async function sendPdfMessage(
     read: false,
     metadata: {
       file_name: filename,
+      file_url: `data:application/pdf;base64,${base64}`,
     },
   };
 
@@ -170,6 +173,7 @@ export async function sendVideoMessage(
     read: false,
     metadata: {
       file_name: filename,
+      file_url: `data:${mimetype};base64,${base64}`,
     },
   };
 

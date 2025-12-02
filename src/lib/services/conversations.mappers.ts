@@ -8,6 +8,7 @@ import type {
   ConversationDetail,
   Message,
 } from "$lib/types/inbox.types";
+import { normalizeMediaUrl } from "./api.utils";
 
 /**
  * Map API message format to frontend Message type
@@ -35,7 +36,23 @@ export function mapApiMessage(apiMsg: any, conversationId: string): Message {
     mappedSender = "ai";
   }
 
-  return {
+  console.log('[MAPPER] Raw API message:', apiMsg);
+  console.log('[MAPPER] Message type from API:', apiMsg.message_type);
+  console.log('[MAPPER] Content:', apiMsg.content);
+  console.log('[MAPPER] Media URL from API:', apiMsg.media_url);
+  console.log('[MAPPER] Media filename:', apiMsg.media_filename);
+  console.log('[MAPPER] Media mimetype:', apiMsg.media_mimetype);
+
+  const normalizedFileUrl = normalizeMediaUrl(apiMsg.media_url);
+  console.log("[MAPPER] Normalized file URL:", normalizedFileUrl);
+
+  // Map message types - convert 'document' to 'file' for MessageBubble
+  let messageType = apiMsg.message_type || "text";
+  if (messageType === "document") {
+    messageType = "file";
+  }
+
+  const mappedMessage = {
     id: apiMsg.id,
     conversation_id: conversationId,
     sender: mappedSender,
@@ -44,9 +61,9 @@ export function mapApiMessage(apiMsg: any, conversationId: string): Message {
     content: apiMsg.content || "",
     timestamp: apiMsg.timestamp || new Date().toISOString(),
     read: true, // Assuming read for now
-    type: apiMsg.message_type || "text",
+    type: messageType,
     metadata: {
-      file_url: apiMsg.media_url,
+      file_url: normalizedFileUrl,
       file_name: apiMsg.media_filename,
       file_size: apiMsg.media_size,
       file_type: apiMsg.media_mimetype,
@@ -55,6 +72,9 @@ export function mapApiMessage(apiMsg: any, conversationId: string): Message {
     },
     internal: apiMsg.internal || false,
   };
+  console.log('[MAPPER] Mapped message:', mappedMessage);
+  console.log('[MAPPER] File URL in metadata:', mappedMessage.metadata.file_url);
+  return mappedMessage;
 }
 
 /**
@@ -67,7 +87,7 @@ export function mapApiConversation(apiConv: any): Conversation {
     contact_name: apiConv.name || "Sin nombre",
     contact_phone: apiConv.phone || "",
     contact_email: apiConv.email,
-    contact_avatar: apiConv.avatar_url,
+    contact_avatar: normalizeMediaUrl(apiConv.avatar_url),
     last_message:
       typeof apiConv.last_message === "string"
         ? apiConv.last_message

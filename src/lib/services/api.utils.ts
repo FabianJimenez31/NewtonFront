@@ -8,6 +8,17 @@ import type { ApiError } from "$lib/types/inbox.types";
 // Use relative URL to leverage Vite proxy configuration
 // This prevents CORS errors and ensures all requests go through the dev server
 export const API_BASE_URL = "/api/v1";
+export const BACKEND_URL = "https://crm.inewton.ai";
+
+/**
+ * Normalizes media URL to ensure it's absolute
+ */
+export function normalizeMediaUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/")) return `${BACKEND_URL}${url}`;
+  return `${BACKEND_URL}/${url}`;
+}
 
 /**
  * Handles API errors and returns formatted error message
